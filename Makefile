@@ -48,7 +48,7 @@ PROD_HOST_Linux += drvEcdr814Tst
 
 drvEcdr814Tst_SRCS += drvrTst.c
 drvEcdr814Tst_LIBS += drvEcdr814
-drvEcdr814Tst_LDFLAGS += -L$(TOP)/lib/$(T_A)
+#drvEcdr814Tst_LDFLAGS += -L$(TOP)/lib/$(T_A)
 
 #=============================
 
