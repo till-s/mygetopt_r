@@ -15,6 +15,7 @@ typedef enum {
 	EcDir = 0,
 	EcReg,
 	EcBrstCntReg,
+	EcClkMultReg,
 	EcFifoReg,
 	EcRdBckReg,
 	EcAD6620Reg,
@@ -112,6 +113,12 @@ ecGetRawValue(EcNode n, IOPtr b, Val_t *prval);
 
 EcErrStat
 ecPutRawValue(EcNode n, IOPtr b, Val_t v);
+
+EcErrStat
+ecLkupNGet(EcNode, EcFKey, IOPtr, Val_t *);
+
+EcErrStat
+ecLkupNPut(EcNode, EcFKey, IOPtr, Val_t);
 
 #ifdef ECDR814_PRIVATE_IF
 /* operations on a leaf node

@@ -19,17 +19,20 @@ endif
 
 all: subdirs
 
-.PHONY: subdirs $(SUBDIRS)
+.PHONY: prebuild subdirs $(SUBDIRS)
 subdirs: $(SUBDIRS)
 
 .all: drvrTst drvr.o
 
-$(SUBDIRS):  tools includes
+PREBUILD = genMenuHdrtool menuDefs.h genHeaderstool fastKeyDefs.h genDbdtool
+
+prebuild: $(SUBDIRS:%=%/Makefile) $(PREBUILD)
+
+$(SUBDIRS):  prebuild
 	$(MAKE) -C $@ .all
 
-TOOLS = genHeaders genMenuHdr genDbd
-tools:
-	$(MAKE) -C O.host $(TOOLS)
+$(filter %tool, $(PREBUILD)):
+	$(MAKE) -C O.host $(@:%tool=%)
 
 O.%: O.host
 
@@ -67,7 +70,6 @@ genDbd: genDbd.o ecDb.o bitMenu.o
 genHeaders: genHeaders.o ecDb.o
 	$(CC) -o $@ $^
 
-includes: $(SUBDIRS:%=%/Makefile) menuDefs.h fastKeyDefs.h 
 
 clean:
 	$(RM) -r O.host O.tgt
@@ -78,7 +80,7 @@ allclean: clean
 DEPSUBDS = $(SUBDIRS:%=%.depend)
 
 .PHONY: $(DEPSUBDS)
-depend: includes $(DEPSUBDS)
+depend: prebuild $(DEPSUBDS)
 	
 
 $(DEPSUBDS):

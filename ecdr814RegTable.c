@@ -79,12 +79,12 @@ static EcNodeDirRec ad6620Dir = {EcdrNumberOf(ad6620RegDefs), ad6620RegDefs, "ad
 static EcNodeDirRec ad6620RawDir = {EcdrNumberOf(ad6620RawRegDefs), ad6620RawRegDefs, "raw_ad6620"};
 
 static EcNodeRec ecdrChannelRegDefs[] = {
-{	"trigMode",	EcReg,		0x0,	REGUNION( 1, 4,		Mtm,	0)		},
+{	"trigMode",	EcReg,		0x0,	REGUNION( 1, 4,		Mtm|NI,	0)		},			/* set by the readback mode */
 {	"counterEna",	EcReg,		0x0,	REGUNBIT( 4, 5,		0,	0)		},
 {	"rxParallel",	EcReg,		0x0,	REGUNBIT( 5, 6,		0,	0)		},
 {	"trigClear",	EcReg,		0x0,	REGUNBIT( 15, 16,	0,	0)		},
 {	"modeSelect",	EcReg,		0x4,	REGUNION( 0, 3,		Mms,	0)		},
-{	"channelID",	EcReg,		0x4,	REGUNLMT( 3, 6,		0,	0,		0,	7,	0)},
+{	"channelID",	EcReg,		0x4,	REGUNLMT( 3, 6,		NI,	0,		0,	7,	0)},	/* filled in at driver ini */
 {	"nAccum",	EcReg,		0x4,	REGUNLMT( 6, 14,	0,	1,		1,	256,	-1)},
 {	"burstCnt",	EcBrstCntReg,	0x0,	REGUNLMT( 0, 17,	0,	0,		1,	0x20000,-1)},	/* TODO special values depending on accu mode */
 {	"totDecm_2",	EcReg,		0xc,	REGUNLMT( 0, 14,	0,	1,		1,	16384,  -1)},	/* TODO: special, depends on AD settings: they calculate from cics and rcf, check <=16383 */
@@ -101,9 +101,9 @@ static EcNodeDirRec ecdrChannelDir = {EcdrNumberOf(ecdrChannelRegDefs), ecdrChan
 static EcNodeDirRec ecdrChannelRawDir = {EcdrNumberOf(ecdrChannelRawRegDefs), ecdrChannelRawRegDefs, "raw_channel"};
 
 static EcNodeRec ecdrChannelPairRegDefs[] = {
-{	"clockSame",	EcReg,		0x0,	REGUNBIT( 0, 1,		0,	1)		},	/* TODO related to clk multiplier ? */
+{	"clockSame",	EcReg,		0x0,	REGUNBIT( 0, 1,		NI,	0)		},	/* TODO related to clk multiplier ? */
 {	"ncoSyncEna",	EcReg,		0x0,	REGUNBIT( 1, 2,		0,	1)		},
-{	"fifoOffset",	EcFifoReg,	0x0,	REGUNLMT( 0, 16,	0,	16,		0,	0xffff,	0)},
+{	"fifoOffset",	EcFifoReg,	0x0,	REGUNLMT( 0, 16,	NI,	16,		0,	0xffff,	0)}, /* set by the readback mode */
 {	"C0.ncoSync",	EcReg,		0x0,	REGUNBIT( 6, 7,		0,	0)		},
 {	"C1.ncoSync",	EcReg,		0x0,	REGUNBIT( 7, 8,		0,	0)		},
 {	"0A.rxReset",	EcReg,		0x0,	REGUNBIT( 8, 9,		0,	1)		},	/* reset at startup */
@@ -162,8 +162,8 @@ static EcNodeRec ecdrBoardRegDefs[] = {
 {	"swSync",	EcReg,		0x0,	REGUNBIT( 10, 11,	0,	0)		},
 {	"pktCntRst",	EcReg,		0x0,	REGUNBIT( 11, 12,	0,	0)		},
 {	"lclBusRst",	EcReg,		0x0,	REGUNBIT( 12, 13, 	0,	0)		},
-{	"clkMult03",	EcReg,		0x0,	REGUNION( 17, 19,	Mcm,	0)		},	/* TODO wait 15ms */
-{	"clkMult47",	EcReg,		0x0,	REGUNION( 19, 21,	Mcm,	0)		},	/* TODO wait 15ms */
+{	"clkMult03",	EcClkMultReg,	0x0,	REGUNION( 17, 19,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
+{	"clkMult47",	EcClkMultReg,	0x0,	REGUNION( 19, 21,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
 {	"fifoStat",	EcDir,		0x4,	{ d: &fifoStatDir }		},
 {	"intVec",	EcReg,		0x8,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
 {	"intMsk",	EcReg,		0xc,	REGUNLMT( 0, 11,	0,	0,		0,	0x7ff,	0)},

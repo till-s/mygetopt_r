@@ -5,6 +5,9 @@
 #include "bitMenu.h"
 #include "ecdrRegdefs.h"
 
+#include "ecFastKeys.h"
+#include "menuDefs.h"
+
 #include <assert.h>
 #include<stdio.h>
 
@@ -107,9 +110,131 @@ rdbckModePutRaw(EcNode n, IOPtr b, Val_t val)
  * and we have to switch unused channels off; actually, we do that
  * at a higher level...
  */
-return putRaw(n,b,val);
+#if 0
+EcErrStat	e;
+unsigned long	fifoOff;
+int		tmp,nk,i;
+EcFKey		keys[10];
+Val_t		v;
+		/* calculate the default fifo offset */
+		tmp = val-7;
+		fifoOff = 16 >> ( tmp < 0 ? 0 : tmp );
+
+		/* set the fifo offsets */
+		/* first, we build keys */
+		nk=0;
+		keys[nk++]= BUILD_FKEY2(FK_board_01, FK_channelPair_fifoOffset);
+		keys[nk++]= BUILD_FKEY2(FK_board_23, FK_channelPair_fifoOffset);
+		keys[nk++]= BUILD_FKEY2(FK_board_45, FK_channelPair_fifoOffset);
+		keys[nk++]= BUILD_FKEY2(FK_board_67, FK_channelPair_fifoOffset);
+		/* set all the offsets */
+		for (i=0; i<nk; i++) {
+			if (e=ecLkupNPut(n, keys[i], b, val))
+				return e;
+		}
+		/* turn off syncing of unused channels */
+		/* build keys for all channels */
+		nk=0;
+		keys[nk++]= BUILD_FKEY3(FK_board_01,
+					FK_channelPair_C0,
+					FK_channel_trigMode);
+		keys[nk++]= BUILD_FKEY3(FK_board_01,
+					FK_channelPair_C1,
+					FK_channel_trigMode);
+		keys[nk++]= BUILD_FKEY3(FK_board_23,
+					FK_channelPair_C0,
+					FK_channel_trigMode);
+		keys[nk++]= BUILD_FKEY3(FK_board_23,
+					FK_channelPair_C1,
+					FK_channel_trigMode);
+		keys[nk++]= BUILD_FKEY3(FK_board_45,
+					FK_channelPair_C0,
+					FK_channel_trigMode);
+		keys[nk++]= BUILD_FKEY3(FK_board_45,
+					FK_channelPair_C1,
+					FK_channel_trigMode);
+		keys[nk++]= BUILD_FKEY3(FK_board_67,
+					FK_channelPair_C0,
+					FK_channel_trigMode);
+		keys[nk++]= BUILD_FKEY3(FK_board_67,
+					FK_channelPair_C1,
+					FK_channel_trigMode);
+
+		/* try to get current mode */
+		for ( v = EC_MENU_trigMode_channelDisabled, i=0; 
+		      EC_MENU_trigMode_channelDisabled==v && i < nk;
+		      i++)
+			if (e = ecLkupNGet(n, keys[i], b, &v))
+				return e;
+		if (EC_MENU_trigMode_channelDisabled == v)
+			v = EC_MENU_trigMode_triggered; /* chose default */
+
+		if (EC_MENU_rdbackMode_AllChannels != val) {
+			/* turn off all channels */
+			for (i=0; i< nk; i++) {
+				if (e=ecLkupNPut(n,
+						keys[i],
+						b,
+						EC_MENU_trigMode_channelDisabled))
+					return e;
+			}
+			/* now selectively turn on channels */
+			nk = 0;
+			if ( val <= EC_MENU_rdbackMode_Channel_7  ) {
+				/* one channel */
+				keys[nk++] = keys[val];
+			} else {
+				/* at least two channels, 0 + 2 */
+				nk=1;
+				keys[nk++]=keys[2];
+				if (EC_MENU_rdbackMode_Ch_0246) {
+					/* four channels: 0,2,4,6 */
+					keys[nk++] = keys[4];
+					keys[nk++] = keys[6];
+				} /* else must be two channels */
+			}
+		} /* else all channels are enabled */
+
+		/* finally, enable the channels */
+		for (i=0; i< nk; i++) {
+			if (e=ecLkupNPut(n, keys[i], b, v))
+				return e;
+		}
+#endif
+		
+		/* eventually write the board configuration register */
+		return putRaw(n,b,val);
 }
 
+/* propagate the clock multiplier value to the "clockSame" bit */
+
+static EcErrStat
+clkMultPutRaw(EcNode n, IOPtr b, Val_t rawval)
+{
+EcErrStat	e;
+int		hiPair,i;
+Val_t		v;
+EcFKey		k[2];
+
+		/* is this request for channel 0..3 or for 4..7 ? */
+		hiPair = n->u.r.pos1 > 17;
+
+		/* reconstruct menu index and calculate "clockSame" */
+		v = (EC_MENU_clockMult_Rx__ADC_Clk == ((rawval >> n->u.r.pos1) & 0x3));
+		if (hiPair) {
+			k[0]= BUILD_FKEY2(FK_board_45,FK_channelPair_clockSame);
+			k[1]= BUILD_FKEY2(FK_board_67,FK_channelPair_clockSame);
+		} else {
+			k[0]= BUILD_FKEY2(FK_board_01,FK_channelPair_clockSame);
+			k[1]= BUILD_FKEY2(FK_board_23,FK_channelPair_clockSame);
+		}
+		for (i=0; i<EcdrNumberOf(k); i++)
+			if (e = ecLkupNPut(n, k[i], b, v))
+				return e;
+
+		/* eventually, write the board CSR */
+		return putRaw(n,b,rawval);
+}
 
 #define FIFO_OFFREG	0x40
 #define FIFOCTL_USE_OFF	(1<<5)
@@ -483,7 +608,16 @@ EcNodeOpsRec ecdr814RdBckRegNodeOps = {
 	rdbckModePutRaw
 };
 
-static EcNodeOps	nodeOps[8]={&ecDefaultNodeOps,};
+EcNodeOpsRec ecdr814ClkMultRegNodeOps = {
+	&ecdr814RegNodeOps,
+	0,
+	0,
+	0,
+	0,
+	clkMultPutRaw
+};
+
+static EcNodeOps nodeOps[10]={&ecDefaultNodeOps,};
 
 /* public routines to access leaf nodes */
 
@@ -527,8 +661,9 @@ EcErrStat
 ecLkupNGet(EcNode n, EcFKey k, IOPtr base, Val_t *pv)
 {
 IOPtr addr=base;
-	if (!(n=lookupEcNodeFast(n, k, &addr, 0)))
+	if (!(n=lookupEcNodeFast(n, k, &addr, 0))) {
 		return EcErrNodeNotFound;
+	}
 	return ecGetValue(n, addr, pv);
 }
 
@@ -536,8 +671,9 @@ EcErrStat
 ecLkupNPut(EcNode n, EcFKey k, IOPtr base, Val_t pv)
 {
 IOPtr addr=base;
-if (!(n=lookupEcNodeFast(n, k, &addr, 0)))
+if (!(n=lookupEcNodeFast(n, k, &addr, 0))) {
 	return EcErrNodeNotFound;
+}
 return ecPutValue(n, addr, pv);
 }
 
@@ -559,7 +695,7 @@ EcNodeOps super=ops->super;
 void
 addNodeOps(EcNodeOps ops, EcNodeType t)
 {
-	assert( t << EcdrNumberOf(nodeOps) && !nodeOps[t]);
+	assert( t < EcdrNumberOf(nodeOps) && !nodeOps[t]);
 	recursive_ini(ops);
 	nodeOps[t] = ops;
 }
@@ -571,6 +707,7 @@ initRegNodeOps(void)
 	addNodeOps(&ecdr814AD6620RegNodeOps, EcAD6620Reg);
 	addNodeOps(&ecdr814AD6620MCRNodeOps, EcAD6620MCR);
 	addNodeOps(&ecdr814BrstCntRegNodeOps, EcBrstCntReg);
+	addNodeOps(&ecdr814ClkMultRegNodeOps, EcClkMultReg);
 	addNodeOps(&ecdr814FifoRegNodeOps, EcFifoReg);
 	addNodeOps(&ecdr814RdBckRegNodeOps, EcRdBckReg);
 	addNodeOps(&ecdr814AD6620RCFNodeOps, EcAD6620RCF);
