@@ -51,7 +51,7 @@ return path & (mask>>FKEY_LEN);
 /* convert a NodeList to a fastkey describing
  * the same path
  */
-extern inline EcFKey
+static inline EcFKey
 ecNode2FKey(EcNode n)
 {
 EcFKey rval = EMPTY_FKEY;
