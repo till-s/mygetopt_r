@@ -41,7 +41,7 @@ typedef char		*EcKey; /* string keys */
 #define EMPTY_FKEY	((EcFKey)0)
 
 #define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
-#define EcKeyIsEmpty(k)	((k)==0)
+#define EcKeyIsEmpty(k)		((k)==0)
 #define EcString2Key(k)		(k)
 
 #define	ECDR814_NUM_RCF_COEFFS	4 /* testing */
