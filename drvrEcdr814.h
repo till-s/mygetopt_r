@@ -51,7 +51,7 @@ typedef enum {
 	EcBrstCntReg,
 	EcRdBckReg,
 	EcAD6620Reg,
-	EcAD6620MCR,
+	EcAD6620MCR
 } EcCNodeType;
 
 typedef enum {
@@ -316,8 +316,8 @@ ecStartDMA( EcBoardDesc board, EcDMADesc d);
 /* a fast way of reading the interrupt status register
  * without going through the database
  */
-unsigned long
-ecGetIntStat( EcBoardDesc bd);
+unsigned short
+ecGetIntStat(EcBoardDesc bd);
 
 /* get the sema status register of the CY961
  * NOTE: the returned value has been _inverted_, i.e.

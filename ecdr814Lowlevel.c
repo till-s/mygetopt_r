@@ -122,13 +122,13 @@ switch (ECMYFKEY(n)) {
 		return EcErrNodeNotFound;
 }
 
-if (rval = ecLkupNPut(bd, n, fk, tmp))
+if ((rval = ecLkupNPut(bd, n, fk, tmp)))
 	return rval;
 
 /*
  * allow mCiC2 == 1 if rx clock higher than acquisition clk
  */
-if (rval = ecLkupNGet(bd,n,BUILD_FKEY2(FK_PARENT, FK_channelPair_clockSame), &v))
+if ((rval = ecLkupNGet(bd,n,BUILD_FKEY2(FK_PARENT, FK_channelPair_clockSame), &v)))
 	return rval;
 
 if ( v && mCiC2 < 2 )
@@ -212,7 +212,14 @@ ecStartDMA(EcBoardDesc brd, EcDMADesc d)
 	return EcErrOK;
 }
 
-unsigned long
+/* use a ushort return value, so the
+ * user may use a ulong for manipulating
+ * interrupt status. Having this return
+ * short they can be sure we're only
+ * manipulating the lower 16 bits
+ * without having to mess with a mask :-)
+ */
+unsigned short
 ecGetIntStat(EcBoardDesc bd)
 {
 return RDBE(bd->base + ECDR_INT_STAT_OFFSET) & ECDR_INT_STAT_MSK;
