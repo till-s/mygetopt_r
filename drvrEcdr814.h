@@ -8,7 +8,9 @@
 /* number of array elements */
 #define EcdrNumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
 
-#define EC_DIRSEP_CHAR	'/'
+#define EC_DIRSEP_CHAR		'/'
+#define EC_UPDIR_NAME		".."
+#define EC_UPDIR_NAME_LEN	2
 
 /* Node types */
 typedef enum {
@@ -20,7 +22,7 @@ typedef enum {
 	EcAD6620Reg,
 	EcAD6620MCR,
 	EcAD6620RCF
-} EcNodeType;
+} EcCNodeType;
 
 typedef enum {
 	EcFlgMenuMask	= (1<<5)-1,	/* uses a menu */
@@ -39,6 +41,8 @@ typedef unsigned long Val_t;
 typedef unsigned long	EcFKey; /* fastkeys */
 typedef char		*EcKey; /* string keys */
 #define EMPTY_FKEY	((EcFKey)0)
+#define UPDIR_FKEY	((EcFKey)((1<<FKEY_LEN)-1))
+#define EcFKeyIsEmpty(k)	(EMPTY_FKEY==(k))
 
 #define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
 #define EcKeyIsEmpty(k)		((k)==0)
@@ -52,18 +56,18 @@ typedef char		*EcKey; /* string keys */
  *  - ECDR register array (leaf node)
  *  - "directory" of nodes (non-leaf, "dir" - node)
  */
-typedef struct EcNodeRec_ {
+typedef struct EcCNodeRec_ {
 	char			*name;
 #if 0
-	EcNodeType	t : 4;
+	EcCNodeType	t : 4;
 	unsigned long	offset: 28;
 #else
-	EcNodeType	t;
+	EcCNodeType	t;
 	unsigned long	offset;
 #endif
 	union {
 		struct {
-			struct EcNodeDirRec_	*n;
+			struct EcCNodeDirRec_	*n;
 		} d;					/* if an EcDir */
 		struct {
 			unsigned char		pos1;
@@ -73,51 +77,64 @@ typedef struct EcNodeRec_ {
 			unsigned long   	min,max,adj;
 		} r;					/* if a Reg or AD6620Reg */
 	} u;
+} EcCNodeRec, *EcCNode;
+
+#define EcCNodeIsDir(n)   (EcDir==(n)->t)
+#define EcCNodeIsArray(n) (!EcCNodeIsDir(n) && (EcFlgArray & (n)->u.r.flags))
+
+/* ("class") EcCNodes hold more data and there exists only _one_ instance
+ * per register type, describing its properties.
+ * EcNodes are smaller and there exists one instance for
+ * each register of a particular type that exists on the board.
+ * E.g: there are 16 'CIC2 decimation factor' registers on the
+ * board. Hence there is one EcCNode describing the register
+ * and there are 16 EcNodes for accessing the various instances.
+ */
+
+typedef struct EcNodeRec_ {
+	EcCNode			  node;	/* description of this node */
+	union		{
+		struct EcNodeRec_ *dir;	/* a list of nodes if it's a directory */
+		unsigned long	  *off; /* offset into the ECDR register space for leaf nodes */
+	} u;
+	struct EcNodeRec_	  *parent; /* our parent directory */
 } EcNodeRec, *EcNode;
 
-#define REGUNLMT( pos1, pos2, flags, inival, min, max, adj) { r: (pos1), (pos2), (flags), (inival), (min), (max), (adj) }
-#define REGUNION( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 0, 0 )
-#define REGUNBIT( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 1, 0 )
-#define EcNodeIsDir(n)   (EcDir==(n)->t)
-#define EcNodeIsArray(n) (!EcNodeIsDir(n) && (EcFlgArray & (n)->u.r.flags))
+#define EcNodeIsDir(n)	(EcDir==(n)->node->t)
+#define EcNodeIsArray(n) (!EcNodeIsDir(n) && (EcFlgArray & (n)->node->u.r.flags))
 
 /* a directory of nodes */
-typedef struct EcNodeDirRec_ {
+typedef struct EcCNodeDirRec_ {
 	long		nels;
-	EcNode		nodes;
+	EcCNode		nodes;
 	char		*name;
-} EcNodeDirRec, *EcNodeDir;
+} EcCNodeDirRec, *EcCNodeDir;
 
 /* for building linked lists of nodes */
-typedef struct EcNodeListRec_ {
-	struct EcNodeListRec_	*p;		/* 'parent' node */
-	EcNode			n;		/* 'this' node */
-} EcNodeListRec, *EcNodeList;
+typedef struct EcCNodeListRec_ {
+	struct EcCNodeListRec_	*p;		/* 'parent' node */
+	EcCNode			n;		/* 'this' node */
+} EcCNodeListRec, *EcCNodeList;
 
 /* access of leaf nodes */
 
 EcErrStat
-ecGetValue(EcNode n, IOPtr b, Val_t *prval);
-
-/* if pOldVal is nonzero, the old value
- * (i.e. the one read from the device
- * before writing a new one)
- * is stored to *pOldVal.
- */
-EcErrStat
-ecPutValue(EcNode n, IOPtr b, Val_t v);
+ecGetValue(EcNode n, IOPtr boardBase, Val_t *prval);
 
 EcErrStat
-ecGetRawValue(EcNode n, IOPtr b, Val_t *prval);
+ecPutValue(EcNode n, IOPtr boardBase, Val_t v);
 
 EcErrStat
-ecPutRawValue(EcNode n, IOPtr b, Val_t v);
+ecGetRawValue(EcNode n, IOPtr boardBase, Val_t *prval);
 
 EcErrStat
-ecLkupNGet(EcNode, EcFKey, IOPtr, Val_t *);
+ecPutRawValue(EcNode n, IOPtr boardBase, Val_t v);
 
 EcErrStat
-ecLkupNPut(EcNode, EcFKey, IOPtr, Val_t);
+ecLkupNGet(EcNode from, EcFKey fkey, IOPtr boardBase, Val_t *prval);
+
+EcErrStat
+ecLkupNPut(EcNode from, EcFKey fkey, IOPtr boardBase, Val_t val);
 
 #ifdef ECDR814_PRIVATE_IF
 /* operations on a leaf node
@@ -130,35 +147,35 @@ ecLkupNPut(EcNode, EcFKey, IOPtr, Val_t);
 		       (((n)->u.r.pos2 & 31 ? 1<<(n)->u.r.pos2 : 0)-1))
 #define ECREGPOS(n) ((n)->u.r.pos1)
 
-typedef struct EcNodeOpsRec_ {
-	struct EcNodeOpsRec_ *super;
+typedef struct EcCNodeOpsRec_ {
+	struct EcCNodeOpsRec_ *super;
 	int			initialized; 	/* must be initialized to 0 */
 	EcErrStat	(*get)(EcNode n, IOPtr b, Val_t *pv);
 	EcErrStat	(*getRaw)(EcNode n, IOPtr b, Val_t *pv);
 	EcErrStat	(*put)(EcNode n, IOPtr b, Val_t v);
 	EcErrStat	(*putRaw)(EcNode n, IOPtr b, Val_t v);
-} EcNodeOpsRec, *EcNodeOps;
+} EcCNodeOpsRec, *EcCNodeOps;
 
 void
-addNodeOps(EcNodeOps ops, EcNodeType type);
+addNodeOps(EcCNodeOps ops, EcCNodeType type);
 
-extern EcNodeOpsRec ecDefaultNodeOps;
+extern EcCNodeOpsRec ecDefaultNodeOps;
 #endif
 
 /* node list record allocation primitives */
-EcNodeList
+EcCNodeList
 allocNodeListRec(void);
 
 /* free a list record returning its "next" member */
-EcNodeList
-freeNodeListRec(EcNodeList ptr);
+EcCNodeList
+freeNodeListRec(EcCNodeList ptr);
 
 /* allocate a nodelist record, set entry to n
  * and prepend to l
  * RETURNS: new NodeListRec
  */
-EcNodeList
-addEcNode(EcNode n, EcNodeList l);
+EcCNodeList
+addEcCNode(EcCNode n, EcCNodeList l);
 
 
 /* lookup a key adding all the offsets
@@ -166,25 +183,34 @@ addEcNode(EcNode n, EcNodeList l);
  * Returns: 0 if the node is not found.
  * Note: the node may not be a leaf
  *
- * If a pointer to a EcNodeListRec is passed (arg l),
- * lookupEcNode will record the traversed path updating
+ * If a pointer to a EcCNodeListRec is passed (arg l),
+ * lookupEcCNode will record the traversed path updating
  * *l.
  * It is the responsibility of the caller to free 
- * list nodes allocated by lookupEcNode.
+ * list nodes allocated by lookupEcCNode.
  *
  * Also, on request, a fast key is returned which
  * gives a short representation of the traversed
  * path
  */
-EcNode
-lookupEcNode(EcNode n, EcKey key, IOPtr *p, EcNodeList *l);
+EcCNode
+lookupEcCNode(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l);
 
-/* same as lookupEcNode but using fast keys */
-EcNode
-lookupEcNodeFast(EcNode n, EcFKey key, IOPtr *p, EcNodeList *l);
+/* same as lookupEcCNode but using fast keys */
+EcCNode
+lookupEcCNodeFast(EcCNode n, EcFKey key, IOPtr *p, EcCNodeList *l);
 
-/* execute a function for every node.
- * The function is passed a EcNodeList pointing to the 
+
+/* lookup a node */
+EcNode
+ecNodeLookup(EcNode n, EcKey key);
+
+/* lookup a node using fastkeys */
+EcNode
+ecNodeLookupFast(EcNode n, EcFKey fkey);
+
+/* execute a function for every node in preorder.
+ * The function is passed a EcCNodeList pointing to the 
  * node and all its parent directories.
  * For convenience, all offsets have been summed up and are
  * passed to "fn" as well. Note that the offset could
@@ -195,19 +221,22 @@ lookupEcNodeFast(EcNode n, EcFKey key, IOPtr *p, EcNodeList *l);
  *      }
  */
 void
-walkEcNode(EcNode n, void (*fn)(EcNodeList l, IOPtr p, void *fnarg), IOPtr p, EcNodeList l, void *fnarg);
+walkEcCNode(EcCNode n, void (*fn)(EcCNodeList l, IOPtr p, void *fnarg), IOPtr p, EcCNodeList l, void *fnarg);
+
+void
+ecWalkNode(EcNode n, void (*fn)(EcNode n, IOPtr boardBase, void *fnarg), IOPtr boardBase, void *fnarg);
 
 /* root node of all boards */
-extern EcNodeRec	ecRootNode;
+extern EcCNodeRec	ecRootNode;
 /* node of the board directory */
-extern EcNodeRec	ecdr814Board;
-extern EcNodeRec	ecdr814RawBoard;
+extern EcCNodeRec	ecdr814Board;
+extern EcCNodeRec	ecdr814RawBoard;
 
 /* initialize the driver */
 void drvrEcdr814Init(void);
 
 typedef struct EcBoardDescRec_ {
-	EcNode		node;		/* node for this board */
+	EcNode		root;		/* node for this board */
 	IOPtr		base;		/* base address seen by CPU */
 /* do not use fields below here; they are 'private' to the driver */
 	IOPtr		vmeBase;	/* base address as seen on VME */

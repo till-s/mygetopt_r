@@ -65,7 +65,7 @@
 #endif
 
 extern EcErrStat
-ad6620ConsistencyCheck(EcNode n, IOPtr b);
+ad6620ConsistencyCheck(EcCNode n, IOPtr b);
 
 /* low level operations */
 #if defined(__PPC) || defined(_ARCH_PPC)

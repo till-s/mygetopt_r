@@ -8,30 +8,30 @@
 #include "ecFastKeys.h"
 
 #ifdef DEBUG
-static EcNodeRec ad[]={
+static EcCNodeRec ad[]={
 	{ "reg0", EcAD6620Reg, 0x0, {r : {3, 4, 0, 1} } },
 	{ "reg1", EcAD6620Reg, 0x10, {r : {14, 18, 0, 5} } },
 	{ "reg2", EcAD6620Reg, 0x10, {r : {3, 5, 0, 2} }  },
 	{ "reg3", EcAD6620Reg, 0x20, {r : {3, 5, 0, 3} } },
 };
 
-static EcNodeDirRec adnode={
+static EcCNodeDirRec adnode={
 	EcdrNumberOf(ad), ad
 };
 
-static EcNodeRec board[]={
+static EcCNodeRec board[]={
 	{ "breg0", EcReg, 0x0, {r: {7, 10, 0, 6} } },
 	{ "breg1", EcReg, 0x4, {r: {3, 5, 0,  1} } },
 	{ "ad0",   EcDir, 0x100,{ &adnode } },
 	{ "ad1",   EcDir, 0x200,{ &adnode } },
 };
 
-static EcNodeDirRec boardnode={
+static EcCNodeDirRec boardnode={
 	EcdrNumberOf(board), board
 };
 
 static void
-rprintNode(EcNodeList l)
+rprintNode(EcCNodeList l)
 {
 	if (l->p) {
 		rprintNode(l->p);
@@ -39,7 +39,7 @@ rprintNode(EcNodeList l)
 	}
 }
 static void
-printNodeName(EcNodeList l, IOPtr p, void* arg)
+printNodeName(EcCNodeList l, IOPtr p, void* arg)
 {
 	Val_t v,rv;
 	rprintNode(l);
@@ -56,8 +56,8 @@ main(int argc, char ** argv)
 {
 IOPtr b=0;
 EcFKey		key;
-EcNode	n;
-EcNodeList l=0;
+EcCNode	n;
+EcCNodeList l=0;
 char *	buf=malloc(0x100000 +  ECDR_BRDREG_ALIGNMENT);
 char *tstdev = (char*)((((unsigned long)buf)+ECDR_BRDREG_ALIGNMENT)&~ECDR_BRDREG_ALIGNMENT);
 
@@ -66,13 +66,13 @@ memset(tstdev,0,0x1000);
 drvrEcdr814Init();
 
 
-printf("node size: %i\n",sizeof(EcNodeRec));
+printf("node size: %i\n",sizeof(EcCNodeRec));
 
 //root.offset=(unsigned long)tstdev;
 #ifdef DEBUG
-//walkEcNode( &root, putIniVal, 0, 0, 0);
-//walkEcNode( &root, printNodeName, 0, 0, 0);
-//walkEcNode( &ecdr814RawBoard, printNodeName, &b, 0, 0);
+//ecCNodeWalk( &root, putIniVal, 0, 0, 0);
+//ecCNodeWalk( &root, printNodeName, 0, 0, 0);
+//ecCNodeWalk( &ecdr814RawBoard, printNodeName, &b, 0, 0);
 ecAddBoard("B0",tstdev,0);
 #endif
 
@@ -86,7 +86,7 @@ return 1;
 sscanf(argv[1],"%i", &key);
 fprintf(stderr,"looking for 0x%08x: ",key);
 l=0;
-n=lookupEcNodeFast(&ecdr814Board,key,&b,&l);
+n=lookupEcCNodeFast(&ecdr814Board,key,&b,&l);
 printf("\nprinting reverse path:\n  ");
 while (l) {
 	printf("- %s",l->n->name);

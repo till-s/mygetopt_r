@@ -37,11 +37,11 @@
 #define CHNLNO(base)  (CHIPNO(base)>>1)
 #define PAIRNO(base)	( ((int)((base)&0x70000) - 0x10000) >> 16 )
 
-static EcNodeList
+static EcCNodeList
 addr2NodeList(IOPtr addr, IOPtr *pbase)
 {
-EcNodeList	l = addEcNode(&ecdr814Board,0);
-EcNode		n;
+EcCNodeList	l = addEcCNode(&ecdr814Board,0);
+EcCNode		n;
 IOPtr		b;
 EcFKey		
 
@@ -58,7 +58,7 @@ switch (PAIRNO(base)) {
 		return l;	/* number < 0, must be a board level register */
 	
 }
-if (!(n=lookupEcNodeFast(l->n, fk, 0, &l)))
+if (!(n=lookupEcCNodeFast(l->n, fk, 0, &l)))
 	goto cleanup;
 
 if (
@@ -81,11 +81,11 @@ cleanup:
 
 
 EcErrStat
-ad6620ConsistencyCheck(EcNode n, IOPtr addr)
+ad6620ConsistencyCheck(EcCNode n, IOPtr addr)
 {
-EcNodeListRec	top={p: 0, n: &ecdr814Board};
-EcNodeList	l=0;
-EcNode		rx;
+EcCNodeListRec	top={p: 0, n: &ecdr814Board};
+EcCNodeList	l=0;
+EcCNode		rx;
 EcErrStat	rval;
 IOPtr		base;
 EcFKey		fk;
@@ -99,7 +99,7 @@ Val_t		mCiC2, mCiC5, mRCF, nTaps, frstTap;
  * the exact path.
  */
 fk = BUILD_FKEY2( FK_board_01 , FK_channelPair_0A);
-if (!(n = lookupEcNodeFast(&ecdr814Board, fk, 0, 0)))
+if (!(n = lookupEcCNodeFast(&ecdr814Board, fk, 0, 0)))
 	return EcErrNodeNotFound;
 
 /* now get the AD6620 parameters using the correct

@@ -8,14 +8,14 @@
 #include "bitMenu.h"
 
 static void
-clearVisited(EcNodeList l, IOPtr p, void *arg)
+clearVisited(EcCNodeList l, IOPtr p, void *arg)
 {
 	/* abuse from the offset field to mark a node visited */
 	l->n->offset=0;
 }
 
 
-static void rprint(EcNodeList l, char **p)
+static void rprint(EcCNodeList l, char **p)
 {
 	if (l->p) {
 		rprint(l->p,p);
@@ -25,14 +25,14 @@ static void rprint(EcNodeList l, char **p)
 }
 
 static void
-dbdFieldEntry(EcNodeList l, IOPtr p, void *arg)
+dbdFieldEntry(EcCNodeList l, IOPtr p, void *arg)
 {
 FILE	*f = (FILE*)arg;
 int	hasmenu;
 char	pathName[200],*chpt;
 char	fieldName[200];
 
-	if (EcNodeIsDir(l->n) || l->n->offset) return;
+	if (EcCNodeIsDir(l->n) || l->n->offset) return;
 
 	l->n->offset = -1; /* mark visited */
 
@@ -92,8 +92,8 @@ int	i;
 EcMenu	*mp;
 FILE	*f=stdout;
 
-	walkEcNode(&ecdr814Board, clearVisited, 0, 0, 0);
-	walkEcNode(&ecdr814Board, dbdFieldEntry, 0, 0, f);
+	ecCNodeWalk(&ecdr814Board, clearVisited, 0, 0, 0);
+	ecCNodeWalk(&ecdr814Board, dbdFieldEntry, 0, 0, f);
 
 
 return 0;

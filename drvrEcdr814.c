@@ -13,17 +13,17 @@
 static int drvrInited=0;
 
 static void
-putIniVal(EcNodeList l, IOPtr p, void* arg)
+putIniVal(EcCNodeList l, IOPtr p, void* arg)
 {
-EcNode n=l->n;
-if ( EcNodeIsDir(n) )return;
+EcCNode n=l->n;
+if ( EcCNodeIsDir(n) )return;
 if ( ! (n->u.r.flags & (EcFlgReadOnly|EcFlgNoInit)))
 	ecPutValue(n, p, n->u.r.inival);
 }
 
-static EcNodeDirRec boardDirectory={0, name: "root"};
+static EcCNodeDirRec boardDirectory={0, name: "root"};
 
-EcNodeRec ecRootNode={
+EcCNodeRec ecRootNode={
 	"/", EcDir, 0, {&boardDirectory}
 	
 };
@@ -47,8 +47,8 @@ EcErrStat
 ecAddBoard(char *name, IOPtr vme_b, EcBoardDesc *pdesc)
 {
 EcErrStat	rval=EcError;
-EcNodeDir	bd=&boardDirectory;
-EcNode		n;
+EcCNodeDir	bd=&boardDirectory;
+EcCNode		n;
 IOPtr		b;
 Val_t		v;
 	/* lazy init */
@@ -79,9 +79,9 @@ Val_t		v;
 
 	/* initialize */
 	/* raw initialization sets pretty much everything to zero */
-	walkEcNode( &ecdr814RawBoard, putIniVal, b, 0, 0);
+	ecCNodeWalk( &ecdr814RawBoard, putIniVal, b, 0, 0);
 	/* now set individual bits as defined in the board table */
-	walkEcNode( &ecdr814Board, putIniVal, b, 0, 0);
+	ecCNodeWalk( &ecdr814Board, putIniVal, b, 0, 0);
 
 	/* write channel ids */
 	{
@@ -99,7 +99,7 @@ Val_t		v;
 		};
 		for (i=0; i < 8; i++) {
 			a = b;
-			assert ( (n = lookupEcNodeFast(&ecdr814Board, fk[i], &a, 0) )
+			assert ( (n = lookupEcCNodeFast(&ecdr814Board, fk[i], &a, 0) )
 				 && (EcErrOK == ecPutValue(n, a, i)) );
 		}
 	}
@@ -107,7 +107,7 @@ Val_t		v;
 
 	/* on success, create directory entry */
 	bd->nels+=2;
-	assert(bd->nodes = (EcNode) realloc(bd->nodes,
+	assert(bd->nodes = (EcCNode) realloc(bd->nodes,
 						sizeof((*(bd->nodes))) * bd->nels));
 
 	n=bd->nodes+(bd->nels-2);

@@ -7,10 +7,10 @@
 #include "drvrEcdr814.h"
 
 static void
-printFastkeyInfo(EcNodeList l, IOPtr p, void* arg)
+printFastkeyInfo(EcCNodeList l, IOPtr p, void* arg)
 {
 int		depth;
-EcNodeList	pl;
+EcCNodeList		pl;
 
 if (l->n->offset) return; /* have visited this node already */
 /* oh well, we must calculate the depth... */
@@ -20,7 +20,7 @@ if (depth >= 0) {
 	long fkey;
 	assert(depth < 8*sizeof(EcFKey)/FKEY_LEN);
 	/* search offset in parent's directory */
-	fkey = l->n - l->p->n->u.d.n->nodes;
+	fkey = l->n- l->p->n->u.d.n->nodes;
 	/* verify that it fits */
 	assert(fkey >=0 && fkey < l->p->n->u.d.n->nels);
 	fkey++; /* 0 is used to mark empty key */
@@ -39,7 +39,13 @@ if (depth >= 0) {
 }
 
 static void
-clearVisited(EcNodeList l, IOPtr p, void *arg)
+countNodes(EcCNodeList l, IOPtr p, void *arg)
+{
+(*(unsigned long*)arg)++;
+}
+
+static void
+clearVisited(EcCNodeList l, IOPtr p, void *arg)
 {
 	/* abuse from the offset field to mark a node visited */
 	l->n->offset=0;
@@ -50,7 +56,7 @@ main(int argc, char ** argv)
 {
 int mode = 0;
 int ch;
-while ((ch=getopt(argc,argv,"k")) >=0) {
+while ((ch=getopt(argc,argv,"kc")) >=0) {
 	if (mode) {
 		fprintf(stderr,"%s: ONLY 1 OPTION ALLOWED\n",argv[0]);
 		exit(1);
@@ -59,8 +65,15 @@ while ((ch=getopt(argc,argv,"k")) >=0) {
 }
 switch (mode) {
 	case 'k':
-		walkEcNode(&ecdr814Board, clearVisited, 0, 0, stdout);
-		walkEcNode(&ecdr814Board, printFastkeyInfo, 0, 0, stdout);
+		ecCNodeWalk(&ecdr814Board, clearVisited, 0, 0, stdout);
+		ecCNodeWalk(&ecdr814Board, printFastkeyInfo, 0, 0, stdout);
+	break;
+
+	case 'c':
+		{ unsigned long total=0;
+		ecCNodeWalk(&ecdr814Board, countNodes, 0, 0, &total);
+		printf("Total node count is %i\n",total);
+		}
 	break;
 	
 	case 0:

@@ -31,9 +31,9 @@ return	drvrEcdr814Menus[index & EcFlgMenuMask];
 }
 
 /* a helper function to register menus
- * This is indended for passing to walkEcNode
+ * This is indended for passing to ecCNodeWalk
  * when initializing the driver.
  */
 void
-ecRegisterMenu(EcNodeList l, IOPtr p, void *arg);
+ecRegisterMenu(EcCNodeList l, IOPtr p, void *arg);
 #endif

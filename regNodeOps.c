@@ -12,7 +12,7 @@
 #include<stdio.h>
 
 static EcErrStat
-get(EcNode n, IOPtr b, Val_t *pv)
+get(EcCNode n, IOPtr b, Val_t *pv)
 {
 EcErrStat rval;
 register Val_t val;
@@ -48,7 +48,7 @@ register Val_t val;
 }
 
 static EcErrStat
-put(EcNode n, IOPtr b, Val_t val)
+put(EcCNode n, IOPtr b, Val_t val)
 {
 
 	if (n->u.r.flags & EcFlgReadOnly)
@@ -87,7 +87,7 @@ put(EcNode n, IOPtr b, Val_t val)
 }
 
 static EcErrStat
-getRaw(EcNode n, IOPtr b, Val_t *rp)
+getRaw(EcCNode n, IOPtr b, Val_t *rp)
 {
 volatile Val_t *vp = (Val_t *)b;
 	*rp = RDBE(vp);
@@ -96,7 +96,7 @@ volatile Val_t *vp = (Val_t *)b;
 
 
 static EcErrStat
-putRaw(EcNode n, IOPtr b, Val_t val)
+putRaw(EcCNode n, IOPtr b, Val_t val)
 {
 volatile Val_t *vp = (Val_t *)b;
 	WRBE(val,vp);
@@ -104,7 +104,7 @@ volatile Val_t *vp = (Val_t *)b;
 }
 
 static EcErrStat
-rdbckModePutRaw(EcNode n, IOPtr b, Val_t val)
+rdbckModePutRaw(EcCNode n, IOPtr b, Val_t val)
 {
 /* TODO when writing the readback mode, we also want to check the fifo settings
  * and we have to switch unused channels off; actually, we do that
@@ -210,7 +210,7 @@ Val_t		v;
 /* propagate the clock multiplier value to the "clockSame" bit */
 
 static EcErrStat
-clkMultPutRaw(EcNode n, IOPtr b, Val_t rawval)
+clkMultPutRaw(EcCNode n, IOPtr b, Val_t rawval)
 {
 EcErrStat	e;
 int		hiPair,i;
@@ -248,7 +248,7 @@ EcFKey		k[2];
 #define FIFOCTL_OFF_MSK	(3<<2)
 
 static EcErrStat
-fifoGetRaw(EcNode n, IOPtr b, Val_t *rp)
+fifoGetRaw(EcCNode n, IOPtr b, Val_t *rp)
 {
 volatile Val_t *vp = (Val_t *)b;
 
@@ -269,7 +269,7 @@ Val_t	fifoctl = RDBE(vp);
 
 
 static EcErrStat
-fifoPutRaw(EcNode n, IOPtr b, Val_t val)
+fifoPutRaw(EcCNode n, IOPtr b, Val_t val)
 {
 volatile Val_t *vp = (Val_t *)b;
 
@@ -293,7 +293,7 @@ Val_t	fifoctl = RDBE(vp);
 #define BURST_COUNT_MSB	1
 
 static EcErrStat
-brstCntGetRaw(EcNode n, IOPtr b, Val_t *rp)
+brstCntGetRaw(EcCNode n, IOPtr b, Val_t *rp)
 {
 volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 
@@ -311,7 +311,7 @@ volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 
 
 static EcErrStat
-brstCntPutRaw(EcNode n, IOPtr b, Val_t val)
+brstCntPutRaw(EcCNode n, IOPtr b, Val_t val)
 {
 volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 Val_t		msb;
@@ -330,7 +330,7 @@ Val_t		msb;
 
 
 static EcErrStat
-adGetRaw(EcNode n, IOPtr b, Val_t *rp)
+adGetRaw(EcCNode n, IOPtr b, Val_t *rp)
 {
 volatile Val_t *vp = (Val_t *)b;
 
@@ -361,7 +361,7 @@ volatile Val_t *vp = (Val_t *)b;
 
 
 static EcErrStat
-adPutMCR(EcNode n, IOPtr b, Val_t val)
+adPutMCR(EcCNode n, IOPtr b, Val_t val)
 {
 
 	if (n->u.r.flags & EcFlgReadOnly)
@@ -405,7 +405,7 @@ adPutMCR(EcNode n, IOPtr b, Val_t val)
 }
 
 static EcErrStat
-adPutRaw(EcNode n, IOPtr b, Val_t val)
+adPutRaw(EcCNode n, IOPtr b, Val_t val)
 {
 volatile Val_t	*vp = (Val_t *)b;
 
@@ -468,7 +468,7 @@ volatile Val_t	*vp = (Val_t *)b;
 }
 
 static EcErrStat
-getCoeffs(EcNode n, IOPtr b, Val_t *v)
+getCoeffs(EcCNode n, IOPtr b, Val_t *v)
 {
 volatile unsigned long *s = (volatile unsigned long *) b;
 unsigned long *d = (unsigned long *) v;
@@ -481,7 +481,7 @@ return EcErrOK;
 }
 
 static EcErrStat
-putCoeffs(EcNode n, IOPtr b, Val_t v)
+putCoeffs(EcCNode n, IOPtr b, Val_t v)
 {
 unsigned long *s = (unsigned long *) v;
 volatile unsigned long *d = (volatile unsigned long *) b;
@@ -538,7 +538,7 @@ ECHOTEK: if in dual receiver mode, the number of taps must be even.
 }
 */
 
-EcNodeOpsRec	ecDefaultNodeOps = {
+EcCNodeOpsRec	ecDefaultNodeOps = {
 	0, /* super */
 	0,
 	0,
@@ -547,7 +547,7 @@ EcNodeOpsRec	ecDefaultNodeOps = {
 };
 
 
-EcNodeOpsRec ecdr814RegNodeOps = {
+EcCNodeOpsRec ecdr814RegNodeOps = {
 	&ecDefaultNodeOps,
 	0,
 	get,
@@ -556,7 +556,7 @@ EcNodeOpsRec ecdr814RegNodeOps = {
 	putRaw
 };
 
-EcNodeOpsRec ecdr814AD6620RegNodeOps = {
+EcCNodeOpsRec ecdr814AD6620RegNodeOps = {
 	&ecdr814RegNodeOps,
 	0,
 	0,
@@ -565,7 +565,7 @@ EcNodeOpsRec ecdr814AD6620RegNodeOps = {
 	adPutRaw
 };
 
-EcNodeOpsRec ecdr814AD6620RCFNodeOps = {
+EcCNodeOpsRec ecdr814AD6620RCFNodeOps = {
 	&ecdr814AD6620RegNodeOps,
 	0,
 	getCoeffs,
@@ -574,7 +574,7 @@ EcNodeOpsRec ecdr814AD6620RCFNodeOps = {
 	0
 };
 
-EcNodeOpsRec ecdr814AD6620MCRNodeOps = {
+EcCNodeOpsRec ecdr814AD6620MCRNodeOps = {
 	&ecdr814AD6620RegNodeOps,
 	0,
 	0,
@@ -583,7 +583,7 @@ EcNodeOpsRec ecdr814AD6620MCRNodeOps = {
 	0
 };
 
-EcNodeOpsRec ecdr814BrstCntRegNodeOps = {
+EcCNodeOpsRec ecdr814BrstCntRegNodeOps = {
 	&ecdr814RegNodeOps,
 	0,
 	0,
@@ -592,7 +592,7 @@ EcNodeOpsRec ecdr814BrstCntRegNodeOps = {
 	brstCntPutRaw
 };
 
-EcNodeOpsRec ecdr814FifoRegNodeOps = {
+EcCNodeOpsRec ecdr814FifoRegNodeOps = {
 	&ecdr814RegNodeOps,
 	0,
 	0,
@@ -601,7 +601,7 @@ EcNodeOpsRec ecdr814FifoRegNodeOps = {
 	fifoPutRaw
 };
 
-EcNodeOpsRec ecdr814RdBckRegNodeOps = {
+EcCNodeOpsRec ecdr814RdBckRegNodeOps = {
 	&ecdr814RegNodeOps,
 	0,
 	0,
@@ -611,70 +611,70 @@ EcNodeOpsRec ecdr814RdBckRegNodeOps = {
 };
 
 
-static EcNodeOps nodeOps[10]={&ecDefaultNodeOps,};
+static EcCNodeOps nodeOps[10]={&ecDefaultNodeOps,};
 
 /* public routines to access leaf nodes */
 
 EcErrStat
-ecGetValue(EcNode n, IOPtr b, Val_t *vp)
+ecGetValue(EcCNode n, IOPtr b, Val_t *vp)
 {
-EcNodeOps ops;
+EcCNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->get);
 	return ops->get(n,b,vp);
 }
 
 EcErrStat
-ecGetRawValue(EcNode n, IOPtr b, Val_t *vp)
+ecGetRawValue(EcCNode n, IOPtr b, Val_t *vp)
 {
-EcNodeOps ops;
+EcCNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->getRaw);
 	return ops->getRaw(n,b,vp);
 }
 
 EcErrStat
-ecPutValue(EcNode n, IOPtr b, Val_t val)
+ecPutValue(EcCNode n, IOPtr b, Val_t val)
 {
-EcNodeOps ops;
+EcCNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->put);
 	return ops->put(n,b,val);
 }
 
 EcErrStat
-ecPutRawValue(EcNode n, IOPtr b, Val_t val)
+ecPutRawValue(EcCNode n, IOPtr b, Val_t val)
 {
-EcNodeOps ops;
+EcCNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->putRaw);
 	return ops->putRaw(n,b,val);
 }
 
 EcErrStat
-ecLkupNGet(EcNode n, EcFKey k, IOPtr base, Val_t *pv)
+ecLkupNGet(EcCNode n, EcFKey k, IOPtr base, Val_t *pv)
 {
 IOPtr addr=base;
-	if (!(n=lookupEcNodeFast(n, k, &addr, 0))) {
+	if (!(n=lookupEcCNodeFast(n, k, &addr, 0))) {
 		return EcErrNodeNotFound;
 	}
 	return ecGetValue(n, addr, pv);
 }
 
 EcErrStat
-ecLkupNPut(EcNode n, EcFKey k, IOPtr base, Val_t pv)
+ecLkupNPut(EcCNode n, EcFKey k, IOPtr base, Val_t pv)
 {
 IOPtr addr=base;
-if (!(n=lookupEcNodeFast(n, k, &addr, 0))) {
+if (!(n=lookupEcCNodeFast(n, k, &addr, 0))) {
 	return EcErrNodeNotFound;
 }
 return ecPutValue(n, addr, pv);
 }
 
 static void
-recursive_ini(EcNodeOps ops)
+recursive_ini(EcCNodeOps ops)
 {
-EcNodeOps super=ops->super;
+EcCNodeOps super=ops->super;
 	if (super) {
 		if (!super->initialized)
 			recursive_ini(super);
@@ -687,7 +687,7 @@ EcNodeOps super=ops->super;
 }
 
 void
-addNodeOps(EcNodeOps ops, EcNodeType t)
+addNodeOps(EcCNodeOps ops, EcCNodeType t)
 {
 	assert( t < EcdrNumberOf(nodeOps) && !nodeOps[t]);
 	recursive_ini(ops);

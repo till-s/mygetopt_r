@@ -50,7 +50,7 @@ return path & (mask>>FKEY_LEN);
  * the same path
  */
 extern inline EcFKey
-ecNodeList2FKey(EcNodeList l)
+ecNodeList2FKey(EcCNodeList l)
 {
 EcFKey rval = EMPTY_FKEY;
 while (l->p) {

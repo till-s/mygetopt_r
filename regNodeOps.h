@@ -6,8 +6,8 @@
 #include "drvrEcdr814.h"
 
 #ifdef ECDR814_PRIVATE_IF
-extern EcNodeOpsRec ecdr814RegNodeOps;
-extern EcNodeOpsRec ecdr814AD6620RegNodeOps;
+extern EcCNodeOpsRec ecdr814RegNodeOps;
+extern EcCNodeOpsRec ecdr814AD6620RegNodeOps;
 #endif
 
 extern void
