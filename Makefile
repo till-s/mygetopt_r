@@ -35,7 +35,9 @@ dirOps.o: dirOps.c /usr/include/stdlib.h /usr/include/features.h \
   /usr/include/time.h /usr/include/endian.h /usr/include/bits/endian.h \
   /usr/include/sys/select.h /usr/include/bits/select.h \
   /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h \
-  /usr/include/alloca.h dirOps.h /usr/include/stdio.h \
+  /usr/include/alloca.h /usr/include/unistd.h \
+  /usr/include/bits/posix_opt.h /usr/include/bits/confname.h \
+  /usr/include/getopt.h dirOps.h /usr/include/stdio.h \
   /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stdarg.h \
   /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
   /usr/include/gconv.h /usr/include/bits/stdio_lim.h drvrEcdr814.h

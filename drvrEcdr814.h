@@ -116,6 +116,7 @@ typedef unsigned long	EcKey;
 typedef char *EcKey;
 #define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
 #define EcKeyIsEmpty(k)	((k)==0)
+#define EcString2Key(k)	(k)
 
 #endif
 
@@ -160,10 +161,9 @@ lookupEcNode(EcNode n, EcKey key, IOPtr *p, EcNodeList *l);
  *           offset+= l->n->offset;
  *           l = l->p;
  *      }
- *
  */
 void
-walkEcNode(EcNode n, void (*fn)(EcNodeList l, IOPtr p), IOPtr p, EcNodeList l);
+walkEcNode(EcNode n, void (*fn)(EcNodeList l, IOPtr p, void *fnarg), IOPtr p, EcNodeList l, void *fnarg);
 
 /* root node of the board directory */
 extern EcNodeRec	ecdr814Board;

@@ -1,6 +1,7 @@
 /* $Id$ */
 
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "dirOps.h"
 
@@ -13,7 +14,6 @@ static EcNodeListRec top = {
 
 static EcNodeList cwd=&top;
 
-/* print current path */
 static void rprint(EcNodeList l, FILE *f)
 {
 	if (l->p) {
@@ -22,6 +22,35 @@ static void rprint(EcNodeList l, FILE *f)
 	}
 }
 
+
+typedef struct LsOptsRec_ {
+	FILE		*f;
+	unsigned long	flags;
+} LsOptsRec, *LsOpts;
+
+static void
+printNodeName(EcNodeList l, IOPtr p, void *arg)
+{
+LsOpts	o=(LsOpts)arg;
+FILE	*f=o->f ? o->f : stderr;
+EcNode 	n=l->n;
+
+	if (l->p) {
+		rprint(l->p,f);
+	}
+	fprintf(f,n->name);
+	if (EcNodeIsDir(n)) {
+		fprintf(f,".");
+	} else {
+		if ( DIROPS_LS_VERBOSE & o->flags) {
+			fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
+			p, ecGetValue(n, p), n->u.r.inival, ecGetRawValue(n,p) );
+		}
+	}
+	fprintf(f,"\n");
+}
+
+/* print current path */
 void
 ecPwd(FILE *f)
 {
@@ -81,30 +110,37 @@ if (EcKeyIsUpDir(k)) {
 
 /* list node contents */
 void
-ecLs(EcKey k, FILE *f)
+ecLs(EcKey k, FILE *f, int flags)
 {
 EcNodeList l=0;
 EcNode	   n;
+IOPtr	   b=0;
+LsOptsRec  o = { f: f, flags: flags };
+	for (l=cwd; l; l=l->p)
+		b+=l->n->offset;
 	if (!f) f=stderr;
 	if (EcKeyIsEmpty(k)) {
 		n=cwd->n;
 	} else {
-	if (!(n=lookupEcNode(cwd->n, k, 0, &l))) {
+	if (!(n=lookupEcNode(cwd->n, k, &b, &l))) {
 		fprintf(stderr,"node not found\n");
 		return;
 	}
 	}
-	if (EcNodeIsDir(n)) {
-		int i;
-		EcNode nn;
-		for (i=0,nn=n->u.d.n->nodes; i<n->u.d.n->nels; i++,nn++) {
-			fprintf(f,"%s%s\n",
-				nn->name,
-				EcNodeIsDir(nn) ? ".": "");
-		}
+	if (DIROPS_LS_RECURSE & flags) {
+		walkEcNode(n, printNodeName, b-(n->offset), 0, (void*)&o);
 	} else {
-		if (l->p) rprint(l->p,f);
-		fprintf(f,n->name);
+		if (EcNodeIsDir(n)) {
+			int i;
+			EcNode nn;
+			EcNodeListRec empty = { 0 };
+			for (i=0,nn=n->u.d.n->nodes; i<n->u.d.n->nels; i++,nn++) {
+				empty.n=nn;
+				printNodeName(&empty, b + nn->offset, (void*)&o);
+			}
+		} else {
+			printNodeName(l, b, (void*)&o);
+		}
 	}
 	while (l) {
 		l=freeNodeListRec(l);
@@ -113,13 +149,21 @@ EcNode	   n;
 
 #ifdef DIRSHELL
 
+#define MAXARGS		10
+#define MAXARGCHARS	200
+
 void
 dirshell(void)
 {
 int ac=0;
 int ch,ai;
+char *argv[MAXARGS+1];
 
-char args[10][200];
+char args[MAXARGS][MAXARGCHARS];
+
+for (ac=0; ac< MAXARGS; ac++)
+	argv[ac]=&args[ac][0];
+
 while (1) {
 fprintf(stderr,"#");
 fflush(stderr);
@@ -130,11 +174,12 @@ while (1) {
 		(ch=getchar());
 	if ('\n'==ch) break;
 	while ('\t'!=ch && ' '!=ch && '\n'!=ch) {
-		if (ai<200-1) args[ac][ai++]=ch;
+		if (ai<MAXARGCHARS-1) args[ac][ai++]=ch;
 		ch=getchar();
 	}
 	
 	args[ac][ai]=0;
+	argv[ac]=&args[ac][0];
 	ai=0;
 
 	if (++ac>=10) {
@@ -144,6 +189,8 @@ while (1) {
 }
 
 if (!ac) continue;
+
+argv[ac]=0;
 
 if (!strcmp("pwd",args[0])) {
 	ecPwd(stderr);
@@ -156,7 +203,17 @@ if (!strcmp("cd",args[0])) {
 	ecCd(args[1]);
 } else
 if (!strcmp("ls",args[0])) {
-	ecLs(ac>=2 ? args[1] : 0, stderr);
+	unsigned long flags=0;
+	int ch;
+	optind=0;
+	while ((ch=getopt(ac,argv,"av"))>=0) {
+		switch(ch) {
+			case 'v': flags|=DIROPS_LS_VERBOSE; break;
+			case 'a': flags|=DIROPS_LS_RECURSE; break;
+			default:  fprintf(stderr,"unknown option\n"); break;
+		}
+	}
+	ecLs(EcString2Key((optind < ac) ? args[optind] : 0), stderr, flags);
 } else
 if (!strcmp("get",args[0])) {
 	Val_t v;

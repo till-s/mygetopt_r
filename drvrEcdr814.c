@@ -190,7 +190,7 @@ EcNodeList h=t;
 		if (!EcNodeIsDir(n)  || !(n=EcKeyLookup(n,&k)))
 			goto cleanup; /* Key not found */
 		if (l) h=addEcNode(n,h);
-#ifdef DEBUG
+#if defined(DEBUG) && 0
 		fprintf(stderr,".%s",n->name);
 #endif
 		if (p) *p+=n->offset;
@@ -241,7 +241,7 @@ EcNodeRec root={
 #include "ecdr814RegTable.c"
 
 void
-walkEcNode(EcNode n, void (*fn)(EcNodeList,IOPtr), IOPtr p, EcNodeList parent)
+walkEcNode(EcNode n, void (*fn)(EcNodeList,IOPtr,void*), IOPtr p, EcNodeList parent, void *fnarg)
 {
 	/* add ourself to the linked list of parent nodes */
 	EcNodeListRec	link={p: parent, n: n};	
@@ -251,15 +251,15 @@ walkEcNode(EcNode n, void (*fn)(EcNodeList,IOPtr), IOPtr p, EcNodeList parent)
 		int i;
 		EcNode nn;
 		for (i=0, nn=n->u.d.n->nodes; i < n->u.d.n->nels; i++, nn++)
-			walkEcNode(nn, fn, p, &link);
+			walkEcNode(nn, fn, p, &link, fnarg);
 	} else {
 		/* call fn for leaves */
-		fn(&link, p);
+		fn(&link, p, fnarg);
 	}
 }
 
 static void
-putIniVal(EcNodeList l, IOPtr p)
+putIniVal(EcNodeList l, IOPtr p, void* arg)
 {
 ecPutValue(l->n, p, l->n->u.r.inival);
 }
@@ -274,7 +274,7 @@ rprintNode(EcNodeList l)
 	}
 }
 static void
-printNodeName(EcNodeList l, IOPtr p)
+printNodeName(EcNodeList l, IOPtr p, void* arg)
 {
 	rprintNode(l);
 	printf(" 0x%08x: %i (ini: %i, raw: 0x%08x)\n",
@@ -307,9 +307,9 @@ printf("node size: %i\n",sizeof(EcNodeRec));
 
 root.offset=(unsigned long)tstdev;
 #ifdef DEBUG
-walkEcNode( &root, putIniVal, 0, 0);
-walkEcNode( &root, printNodeName, 0, 0);
-//walkEcNode( &ecdr814RawBoard, printNodeName, &b, 0);
+walkEcNode( &root, putIniVal, 0, 0, 0);
+walkEcNode( &root, printNodeName, 0, 0, 0);
+//walkEcNode( &ecdr814RawBoard, printNodeName, &b, 0, 0);
 #endif
 
 #ifdef DIRSHELL

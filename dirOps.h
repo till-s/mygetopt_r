@@ -17,7 +17,12 @@ void
 ecCd(EcKey k);
 
 /* list node contents */
+
+/* possible flags */
+#define DIROPS_LS_RECURSE	(1<<0)
+#define DIROPS_LS_VERBOSE	(1<<1)
+
 void
-ecLs(EcKey k, FILE *f);
+ecLs(EcKey k, FILE *f, int flags);
 
 #endif
