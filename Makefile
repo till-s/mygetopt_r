@@ -67,7 +67,7 @@ genMenuHdr: genMenuHdr.o bitMenu.o
 genDbd: genDbd.o ecDb.o bitMenu.o
 	$(CC) -o $@ $^
 
-genHeaders: genHeaders.o ecDb.o
+genHeaders: genHeaders.o ecDb.o bitMenu.o
 	$(CC) -o $@ $^
 
 

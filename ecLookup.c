@@ -97,43 +97,6 @@ EcKey k=*key;
 return 0;
 }
 
-/* lookup a key adding all the offsets
- * of the traversed nodes to *p
- * Returns: 0 if the node is not found.
- * Note: the node may not be a leaf
- */
-/* THIS ROUTINE IS OBSOLETE */
-EcCNode
-ecCNodeLookup(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l)
-{
-int i;
-EcKey k=key;
-EcCNodeList t=l?*l:0;
-EcCNodeList h=t;
-EcBoardDesc bd=0;
-
-	while ( !EcKeyIsEmpty(k) && n ) {
-		if (!EcCNodeIsDir(n)  || !(n=lookupEcKey(n,&k)))
-			goto cleanup; /* Key not found */
-		if (l) h=addEcCNode(n,h);
-#if defined(KEYDEBUG)
-		fprintf(stderr,".%s",n->name);
-#endif
-		if (p) *p+=n->offset;
-	}
-
-	if (l) {
-		*l=h;
-	}
-	return n;
-
-cleanup:
-	while (h!=t) {
-		h=freeNodeListRec(h);
-	}
-	return 0;
-}
-
 EcNode
 ecNodeLookup(EcNode n, EcKey key, EcBoardDesc *pbd)
 {
@@ -169,6 +132,59 @@ EcBoardDesc bd= pbd ? *pbd : 0;
 	return n;
 }
 
+EcNode
+ecNodeLookupFast(EcNode n, EcFKey key)
+{
+EcFKey k=key;
+	if (EC_ROOT_LOOKUP == n) n=ecdr814Board;
+	while ( !EcFKeyIsEmpty(k) && n ) {
+		if (!(n=ecFKeyLookup(n,&k)))
+			return 0;
+#if defined(KEYDEBUG)
+		fprintf(stderr,".%s",n->name);
+#endif
+	}
+	return n;
+}
+
+#ifdef ECDR_OBSOLETE
+/* THIS ROUTINE IS OBSOLETE */
+/* lookup a key adding all the offsets
+ * of the traversed nodes to *p
+ * Returns: 0 if the node is not found.
+ * Note: the node may not be a leaf
+ */
+EcCNode
+ecCNodeLookup(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l)
+{
+int i;
+EcKey k=key;
+EcCNodeList t=l?*l:0;
+EcCNodeList h=t;
+EcBoardDesc bd=0;
+
+	while ( !EcKeyIsEmpty(k) && n ) {
+		if (!EcCNodeIsDir(n)  || !(n=lookupEcKey(n,&k)))
+			goto cleanup; /* Key not found */
+		if (l) h=addEcCNode(n,h);
+#if defined(KEYDEBUG)
+		fprintf(stderr,".%s",n->name);
+#endif
+		if (p) *p+=n->offset;
+	}
+
+	if (l) {
+		*l=h;
+	}
+	return n;
+
+cleanup:
+	while (h!=t) {
+		h=freeNodeListRec(h);
+	}
+	return 0;
+}
+
 EcCNode
 ecCNodeLookupFast(EcCNode n, EcFKey key, IOPtr *p, EcCNodeList *l)
 {
@@ -199,18 +215,6 @@ cleanup:
 	return 0;
 }
 
-EcNode
-ecNodeLookupFast(EcNode n, EcFKey key)
-{
-EcFKey k=key;
-	while ( !EcFKeyIsEmpty(k) && n ) {
-		if (!(n=ecFKeyLookup(n,&k)))
-			return 0;
-#if defined(KEYDEBUG)
-		fprintf(stderr,".%s",n->name);
 #endif
-	}
-	return n;
-}
 
 

@@ -7,23 +7,25 @@
 
 #include "ecdr814RegTable.c"
 
-void
-ecCNodeWalk(EcCNode n, EcCNodeWalkFn fn, IOPtr p, EcCNodeList parent, void *fnarg)
+#include "bitMenu.h"
+
+typedef void (*EcCNodeWalkFn)(EcCNode, IOPtr, void*);
+
+static void
+ecCNodeWalk(EcCNode n, EcCNodeWalkFn fn, IOPtr p, void *fnarg)
 {
-/* add ourself to the linked list of parent nodes */
-EcCNodeListRec	link={p: parent, n: n};	
 
 	/* add offset of this node */
 	p += n->offset;
 
 	/* call fn */
-	fn(&link, p, fnarg);
+	fn(n, p, fnarg);
 
 	if (EcCNodeIsDir(n)) {
 		int i;
 		EcCNode nn;
 		for (i=0, nn=n->u.d.n->nodes; i < n->u.d.n->nels; i++, nn++)
-			ecCNodeWalk(nn, fn, p, &link, fnarg);
+			ecCNodeWalk(nn, fn, p, fnarg);
 	}
 }
 
@@ -44,9 +46,20 @@ ecNodeWalk(EcBoardDesc bd, EcNode n, EcNodeWalkFn fn, void *arg)
 /* create the directory of all instances */
 
 static void
-countNodes(EcCNodeList l, IOPtr b, void *pcnt)
+countNodes(EcCNode l, IOPtr b, void *pcnt)
 {
 (*(unsigned long*)pcnt)++;
+}
+
+/* initialize the min and max fields of menu CNodes */
+static void
+menuMinMaxInit(EcCNode l, IOPtr b, void *arg)
+{
+EcMenu m;
+	if (EcCNodeIsDir(l) || !(m=ecMenu(l->u.r.flags))) return;
+	l->u.r.min = 0;
+	l->u.r.adj = 0;
+	l->u.r.max = m->nels-1;
 }
 
 static void
@@ -102,7 +115,10 @@ EcNode		rval, free;
 
 	/* count the number of nodes */
 	nNodes=0;
-	ecCNodeWalk(classRootNode, countNodes, 0, 0, &nNodes);
+	ecCNodeWalk(classRootNode, countNodes, 0, &nNodes);
+
+	/* initialize the min/max count of menu entries */
+	ecCNodeWalk(classRootNode, menuMinMaxInit, 0, &nNodes);
 	/* allocate space */
 	rval=free=(EcNode)malloc(sizeof(*rval) * nNodes);
 	if (!rval)
@@ -118,6 +134,7 @@ EcNode		rval, free;
 	return rval;
 }
 
+#ifdef ECDR_OBSOLETE
 /* Node list stuff */
 
 static EcCNodeList	freeList=0;
@@ -174,6 +191,7 @@ EcCNodeList rval;
 	}
 	return rval;
 }
+#endif
 
 
 

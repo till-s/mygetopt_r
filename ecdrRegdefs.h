@@ -80,24 +80,17 @@ ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n);
  *  blah = RDBE(ptr) & 0xffff;
  * which the ECDR doesnt like at all;
  */
-#if defined(__BIG_ENDIAN__)
-#define RDBE(addr) (*((volatile Val_t *)(addr)))
-#define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
-#else
-#if defined(DEBUG) && defined(__linux)
-#define RDBE(addr) (*((volatile Val_t *)(addr)))
-#define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
-#endif
-#endif
+#include <ctype.h>
 
-/* we should probably use assert( b & ECDR_AD6620_ALIGNMENT ) */
-extern inline int
-ad6620IsReset(EcBoardDesc bd, EcNode n)
-{
-IOPtr b=bd->base+n->u.offset;
-int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b) + AD6620_MCR_OFFSET);
-	EIEIO;
-	return rval;
-}
+#if BYTE_ORDER == BIG_ENDIAN
+#define RDBE(addr) (*((volatile Val_t *)(addr)))
+#define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
+#elif BYTE_ORDER == LITTLE_ENDIAN
+#include <netinet/in.h>
+#define RDBE(addr) ntohl(*((volatile Val_t *)(addr)))
+#define WRBE(val, addr) (*((volatile Val_t *)(addr))=htonl(val))
+#else
+#error "unable to determine endianness of your machine from system headers"
+#endif
 
 #endif

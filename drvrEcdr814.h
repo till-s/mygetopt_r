@@ -1,20 +1,49 @@
-/* $Id$ */
-
 #ifndef DRV_ECDR814_TILL_H
 #define DRV_ECDR814_TILL_H
+
+/* $Id$ */
+
+/* Public interface to the ECDR814 driver
+ *
+ * Author: Till Straumann <strauman@slac.stanford.edu>, 9/2001
+ */
 
 #include "ecErrCodes.h"
 
 /* number of array elements */
 #define EcdrNumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
 
+/* definition of special chars */
 #define EC_DIRSEP_CHAR		'/'
-#define EC_BRDSEP_CHAR		':'
-#define EC_GLOB_CHAR		'*'
+#define EC_BRDSEP_CHAR		':'	/* separates board name from path */
+#define EC_GLOB_CHAR		'*'	/* wildcard char */
 #define EC_UPDIR_NAME		".."
-#define EC_UPDIR_NAME_LEN	2
+#define EC_UPDIR_NAME_LEN	2	/* depends on EC_UPDIR_NAME */
 
-/* Node types */
+/* pointer to physical device registers */
+typedef volatile unsigned char *IOPtr;
+typedef unsigned long Val_t;
+
+/* fastkey types and macros */
+typedef unsigned long	EcFKey; /* fastkeys */
+#define FKEY_LEN	5	/* number of bits in a fastkey */
+#define EMPTY_FKEY	((EcFKey)0)
+#define UPDIR_FKEY	((EcFKey)((1<<FKEY_LEN)-1))
+#define FK_PARENT	UPDIR_FKEY
+#define EcFKeyIsEmpty(k)	(EMPTY_FKEY==(k))
+
+/* string keys: */
+typedef char		*EcKey; /* string keys */
+#define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
+#define EcKeyIsEmpty(k)		(0==(k) || 0==*(k))
+#define EcString2Key(k)		(k)
+
+/* number of RCF coefficients used (so that the real
+ * value of 256 may be reduced for testing)
+ */
+#define	ECDR814_NUM_RCF_COEFFS	4 /* testing */
+
+/* CNode types */
 typedef enum {
 	EcDir = 0,
 	EcReg,
@@ -35,24 +64,6 @@ typedef enum {
 	EcFlgArray	= (1<<12)	/* is an array pos1..pos2 */
 } EcRegFlags;
 
-/* pointer to physical device registers */
-typedef volatile unsigned char *IOPtr;
-typedef unsigned long Val_t;
-
-#define FKEY_LEN	5	/* bits */
-typedef unsigned long	EcFKey; /* fastkeys */
-typedef char		*EcKey; /* string keys */
-#define EMPTY_FKEY	((EcFKey)0)
-#define UPDIR_FKEY	((EcFKey)((1<<FKEY_LEN)-1))
-#define FK_PARENT	UPDIR_FKEY
-#define EcFKeyIsEmpty(k)	(EMPTY_FKEY==(k))
-
-#define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
-#define EcKeyIsEmpty(k)		(0==(k) || 0==*(k))
-#define EcString2Key(k)		(k)
-
-#define	ECDR814_NUM_RCF_COEFFS	4 /* testing */
-
 /* struct describing a node
  * This can be a description of 
  *  - individual ECDR register bits (leaf node)
@@ -61,10 +72,10 @@ typedef char		*EcKey; /* string keys */
  */
 typedef struct EcCNodeRec_ {
 	char			*name;
-#if 0
+#if 0	/* save some space */
 	EcCNodeType	t : 4;
 	unsigned long	offset: 28;
-#else
+#else	/* be more generous */
 	EcCNodeType	t;
 	unsigned long	offset;
 #endif
@@ -82,6 +93,10 @@ typedef struct EcCNodeRec_ {
 	} u;
 } EcCNodeRec, *EcCNode;
 
+/* macros operating on CNodes */
+#define EcCNodeIsDir(n)   (EcDir==(n)->t)
+#define EcCNodeIsArray(n) (!EcCNodeIsDir(n) && (EcFlgArray & (n)->u.r.flags))
+
 /* a directory of CNodes */
 typedef struct EcCNodeDirRec_ {
 	long		nels;
@@ -89,18 +104,9 @@ typedef struct EcCNodeDirRec_ {
 	char		*name;
 } EcCNodeDirRec, *EcCNodeDir;
 
-/* for building linked lists of CNodes */
-typedef struct EcCNodeListRec_ {
-	struct EcCNodeListRec_	*p;		/* 'parent' node */
-	EcCNode			n;		/* 'this' node */
-} EcCNodeListRec, *EcCNodeList;
-
-#define EcCNodeIsDir(n)   (EcDir==(n)->t)
-#define EcCNodeIsArray(n) (!EcCNodeIsDir(n) && (EcFlgArray & (n)->u.r.flags))
-
-/* ("class") EcCNodes hold more data and there exists only _one_ instance
+/* ("class") EcCNodes hold more data and there exists only _one_ CNode
  * per register type, describing its properties.
- * EcNodes are smaller and there exists one instance for
+ * EcNodes are smaller and there is created one instance for
  * each register of a particular type that exists on the board.
  * E.g: there are 16 'CIC2 decimation factor' registers on the
  * board. Hence there is one EcCNode describing the register
@@ -119,6 +125,7 @@ typedef struct EcNodeRec_ {
 #define EcNodeIsDir(n)	(EcDir==(n)->cnode->t)
 #define EcNodeIsArray(n) (!EcNodeIsDir(n) && (EcFlgArray & (n)->cnode->u.r.flags))
 
+/* Board descriptor type */
 typedef struct EcBoardDescRec_ *EcBoardDesc;
 
 /* access of leaf nodes */
@@ -141,69 +148,6 @@ ecLkupNGet(EcBoardDesc bd, EcNode from, EcFKey fkey, Val_t *prval);
 EcErrStat
 ecLkupNPut(EcBoardDesc bd, EcNode from, EcFKey fkey, Val_t val);
 
-#ifdef ECDR814_PRIVATE_IF
-/* operations on a leaf node
- * NOT INTENDED FOR DIRECT USE. Only
- * implementations for new leaf nodes should
- * use this.
- */
-
-#define ECREGMASK(n) (((1<<((n)->u.r.pos1))-1) ^ \
-		       (((n)->u.r.pos2 & 31 ? 1<<(n)->u.r.pos2 : 0)-1))
-#define ECREGPOS(n) ((n)->u.r.pos1)
-
-typedef struct EcCNodeOpsRec_ {
-	struct EcCNodeOpsRec_ *super;
-	int			initialized; 	/* must be initialized to 0 */
-	EcErrStat	(*get)(EcBoardDesc bd, EcNode n, Val_t *pv);
-	EcErrStat	(*getRaw)(EcBoardDesc bd, EcNode n, Val_t *pv);
-	EcErrStat	(*put)(EcBoardDesc bd, EcNode n, Val_t v);
-	EcErrStat	(*putRaw)(EcBoardDesc bd, EcNode n, Val_t v);
-} EcCNodeOpsRec, *EcCNodeOps;
-
-void
-addNodeOps(EcCNodeOps ops, EcCNodeType type);
-
-extern EcCNodeOpsRec ecDefaultNodeOps;
-#endif
-
-/* node list record allocation primitives */
-EcCNodeList
-allocNodeListRec(void);
-
-/* free a list record returning its "next" member */
-EcCNodeList
-freeNodeListRec(EcCNodeList ptr);
-
-/* allocate a nodelist record, set entry to n
- * and prepend to l
- * RETURNS: new NodeListRec
- */
-EcCNodeList
-addEcCNode(EcCNode n, EcCNodeList l);
-
-
-/* lookup a key adding all the offsets
- * of the traversed nodes to *p
- * Returns: 0 if the node is not found.
- * Note: the node may not be a leaf
- *
- * If a pointer to a EcCNodeListRec is passed (arg l),
- * ecCNodeLookup will record the traversed path updating
- * *l.
- * It is the responsibility of the caller to free 
- * list nodes allocated by ecCNodeLookup.
- *
- * Also, on request, a fast key is returned which
- * gives a short representation of the traversed
- * path
- */
-EcCNode
-ecCNodeLookup(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l);
-
-/* same as ecCNodeLookup but using fast keys */
-EcCNode
-ecCNodeLookupFast(EcCNode n, EcFKey key, IOPtr *p, EcCNodeList *l);
 
 /* this may be passed to ecNodeLookup to specify
  * the default root node
@@ -219,36 +163,27 @@ EcNode
 ecNodeLookupFast(EcNode n, EcFKey fkey);
 
 /* execute a function for every node in preorder.
- * The function is passed a EcCNodeList pointing to the 
- * node and all its parent directories.
- * For convenience, all offsets have been summed up and are
- * passed to "fn" as well. Note that the offset could
- * be calculated as 
- *	while (l) {
- *           offset+= l->n->offset;
- *           l = l->p;
- *      }
+ * The function is passed a EcNode pointing to the 
+ * node.
  */
 
-typedef void (*EcCNodeWalkFn)(EcCNodeList l, IOPtr p, void *fnarg);
-typedef void (*EcNodeWalkFn) (EcBoardDesc bd, EcNode l, void *fnarg);
+typedef void (*EcNodeWalkFn) (EcBoardDesc bd, EcNode n, void *fnarg);
 
 void
-ecCNodeWalk(EcCNode n, EcCNodeWalkFn fn, IOPtr p, EcCNodeList l, void *fnarg);
-
-void
-ecWalkNode(EcNode n, EcNodeWalkFn fn, IOPtr boardBase, void *fnarg);
+ecNodeWalk(EcBoardDesc bd, EcNode n, EcNodeWalkFn fn, void *fnarg);
 
 
-/* node of the board info directory */
+/* CNode of the board info directory */
 extern EcCNodeRec	ecdr814CInfo;
 extern EcCNodeRec	ecdr814RawCInfo;
 
-/* node of the board directory */
+/* Node of the board directory */
 extern EcNode		ecdr814Board;
 
 /* initialize the driver */
 void drvrEcdr814Init(void);
+
+/* implementation of the board descriptor */
 
 typedef struct EcBoardDescRec_ {
 	char		*name;		/* name of this board */
@@ -257,7 +192,6 @@ typedef struct EcBoardDescRec_ {
 	IOPtr		vmeBase;	/* base address as seen on VME */
 	EcNode		root;		/* root node of database */
 } EcBoardDescRec;
-
 
 /* register a board with the driver
  *
@@ -403,4 +337,72 @@ ecClearCYSema(EcBoardDesc bd, unsigned long sema);
  */
 unsigned long
 ecGetCYVector(EcBoardDesc bd);
+
+/****************************************************************/
+/* OBSOLETE STUFF - DONT USE                                    */
+/****************************************************************/
+#ifdef ECDR_OBSOLETE
+/* for building linked lists of CNodes */
+typedef struct EcCNodeListRec_ {
+	struct EcCNodeListRec_	*p;		/* 'parent' node */
+	EcCNode			n;		/* 'this' node */
+} EcCNodeListRec, *EcCNodeList;
+
+/* node list record allocation primitives */
+EcCNodeList
+allocNodeListRec(void);
+
+/* free a list record returning its "next" member */
+EcCNodeList
+freeNodeListRec(EcCNodeList ptr);
+
+/* allocate a nodelist record, set entry to n
+ * and prepend to l
+ * RETURNS: new NodeListRec
+ */
+EcCNodeList
+addEcCNode(EcCNode n, EcCNodeList l);
+
+
+/* lookup a key adding all the offsets
+ * of the traversed nodes to *p
+ * Returns: 0 if the node is not found.
+ * Note: the node may not be a leaf
+ *
+ * If a pointer to a EcCNodeListRec is passed (arg l),
+ * ecCNodeLookup will record the traversed path updating
+ * *l.
+ * It is the responsibility of the caller to free 
+ * list nodes allocated by ecCNodeLookup.
+ *
+ * Also, on request, a fast key is returned which
+ * gives a short representation of the traversed
+ * path
+ */
+EcCNode
+ecCNodeLookup(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l);
+
+/* same as ecCNodeLookup but using fast keys */
+EcCNode
+ecCNodeLookupFast(EcCNode n, EcFKey key, IOPtr *p, EcCNodeList *l);
+
+/* execute a function for every node in preorder.
+ * The function is passed a EcCNodeList pointing to the 
+ * node and all its parent directories.
+ * For convenience, all offsets have been summed up and are
+ * passed to "fn" as well. Note that the offset could
+ * be calculated as 
+ *	while (l) {
+ *           offset+= l->n->offset;
+ *           l = l->p;
+ *      }
+ */
+
+
+typedef void (*EcCNodeWalkFn)(EcCNodeList l, IOPtr p, void *fnarg);
+
+void
+ecCNodeWalk(EcCNode n, EcCNodeWalkFn fn, IOPtr p, EcCNodeList l, void *fnarg);
+
+#endif
 #endif

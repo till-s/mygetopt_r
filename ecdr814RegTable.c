@@ -162,7 +162,7 @@ static EcCNodeRec ecdrBoardRegDefs[] = {
 {	"headerEna",	EcReg,		0x0,	REGUNBIT( 4, 5,		0,	0)		},
 {	"vmeOnly",	EcReg,		0x0,	REGUNBIT( 5, 6,		0,	0)		},
 {	"d64_2kEna",	EcReg,		0x0,	REGUNBIT( 6, 7,		0,	0)		},
-{	"freqRange",	EcReg,		0x0,	REGUNION( 7, 9,		Mfr,	0)		},
+{	"freqRange",	EcReg,		0x0,	REGUNION( 7, 9,		Mfr,	2)		},
 {	"extSyncEna",	EcReg,		0x0,	REGUNBIT( 9, 10,	0,	0)		},
 {	"swSync",	EcReg,		0x0,	REGUNBIT( 10, 11,	0,	0)		},
 {	"pktCntRst",	EcReg,		0x0,	REGUNBIT( 11, 12,	0,	0)		},

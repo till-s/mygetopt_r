@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <assert.h>
 
-//#include "drvrEcdr814.h"
 #include "bitMenu.h"
 
 static int menudbd(char*);

@@ -7,55 +7,58 @@
 #include "drvrEcdr814.h"
 
 static void
-printFastkeyInfo(EcCNodeList l, IOPtr p, void* arg)
+printFastkeyInfo(EcBoardDesc bd, EcNode l, void* arg)
 {
-int		depth;
-EcCNodeList		pl;
+int	depth;
+EcNode	pl;
 
-if (l->n->offset) return; /* have visited this node already */
+if (l->cnode->offset) return; /* have visited this node already */
 /* oh well, we must calculate the depth... */
-for (depth=-1, pl=l; pl->p; depth++, pl=pl->p) ;
+for (depth=-1, pl=l; pl->parent; depth++, pl=pl->parent) ;
 if (depth >= 0) {
 	char buf[200];
 	long fkey;
 	assert(depth < 8*sizeof(EcFKey)/FKEY_LEN);
 	/* search offset in parent's directory */
-	fkey = l->n- l->p->n->u.d.n->nodes;
+	fkey = l->cnode- l->parent->cnode->u.d.n->nodes;
 	/* verify that it fits */
-	assert(fkey >=0 && fkey < l->p->n->u.d.n->nels);
+	assert(fkey >=0 && fkey < l->parent->cnode->u.d.n->nels);
 	fkey++; /* 0 is used to mark empty key */
 	assert(fkey < (1<<FKEY_LEN));
 	/* seems ok, transform name replacing '.' by '_' */
-	strcpy(buf,l->n->name);
+	strcpy(buf,l->cnode->name);
 	{ char *chpt;
 	  for (chpt=buf; *chpt; chpt++) {
 		if (!isalnum(*chpt)) *chpt='_';
 	  }
 	}
-	fprintf((FILE*)arg,"#define FK_%s_%s\t\t%i\n",l->p->n->u.d.n->name,buf,fkey);
+	fprintf((FILE*)arg,"#define FK_%s_%s\t\t%i\n",l->parent->cnode->u.d.n->name,buf,fkey);
 	/* mark node visited */
-	l->n->offset=1;
+	l->cnode->offset=1;
 }
 }
 
 static void
-countNodes(EcCNodeList l, IOPtr p, void *arg)
+countNodes(EcBoardDesc bd, EcNode l, void *arg)
 {
 (*(unsigned long*)arg)++;
 }
 
 static void
-clearVisited(EcCNodeList l, IOPtr p, void *arg)
+clearVisited(EcBoardDesc bd, EcNode l, void *arg)
 {
 	/* abuse from the offset field to mark a node visited */
-	l->n->offset=0;
+	l->cnode->offset=0;
 }
+
+extern EcNode ecCreateDirectory(EcCNode);
 
 int
 main(int argc, char ** argv)
 {
 int mode = 0;
 int ch;
+EcNode root;
 while ((ch=getopt(argc,argv,"kc")) >=0) {
 	if (mode) {
 		fprintf(stderr,"%s: ONLY 1 OPTION ALLOWED\n",argv[0]);
@@ -63,15 +66,16 @@ while ((ch=getopt(argc,argv,"kc")) >=0) {
 	}
 	mode = ch;
 }
+root=ecCreateDirectory(&ecdr814CInfo);
 switch (mode) {
 	case 'k':
-		ecCNodeWalk(&ecdr814CInfo, clearVisited, 0, 0, stdout);
-		ecCNodeWalk(&ecdr814CInfo, printFastkeyInfo, 0, 0, stdout);
+		ecNodeWalk(0, root, clearVisited, stdout);
+		ecNodeWalk(0, root, printFastkeyInfo, stdout);
 	break;
 
 	case 'c':
 		{ unsigned long total=0;
-		ecCNodeWalk(&ecdr814CInfo, countNodes, 0, 0, &total);
+		ecNodeWalk(0, root, countNodes, &total);
 		printf("Total node count is %i\n",total);
 		}
 	break;

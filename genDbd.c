@@ -8,33 +8,33 @@
 #include "bitMenu.h"
 
 static void
-clearVisited(EcCNodeList l, IOPtr p, void *arg)
+clearVisited(EcBoardDesc bd, EcNode l, void *arg)
 {
 	/* abuse from the offset field to mark a node visited */
-	l->n->offset=0;
+	l->cnode->offset=0;
 }
 
 
-static void rprint(EcCNodeList l, char **p)
+static void rprint(EcNode l, char **p)
 {
-	if (l->p) {
-		rprint(l->p,p);
-		if (l->p->p) *((*p)++) = EC_DIRSEP_CHAR;
+	if (l->parent) {
+		rprint(l->parent,p);
+		if (l->parent->parent) *((*p)++) = EC_DIRSEP_CHAR;
 	} else return;
-	*p+=sprintf(*p,l->n->name);
+	*p+=sprintf(*p,l->cnode->name);
 }
 
 static void
-dbdFieldEntry(EcCNodeList l, IOPtr p, void *arg)
+dbdFieldEntry(EcBoardDesc bd, EcNode l, void *arg)
 {
 FILE	*f = (FILE*)arg;
 int	hasmenu;
 char	pathName[200],*chpt;
 char	fieldName[200];
 
-	if (EcCNodeIsDir(l->n) || l->n->offset) return;
+	if (EcCNodeIsDir(l->cnode) || l->cnode->offset) return;
 
-	l->n->offset = -1; /* mark visited */
+	l->cnode->offset = -1; /* mark visited */
 
 	chpt=pathName;
 	rprint(l, &chpt);
@@ -60,8 +60,8 @@ char	fieldName[200];
 	fprintf(f,"# %s\n",pathName);
 
 	dpt=pathName;
-	if ( ! (chpt=strchr(l->n->name,'.')) )
-		chpt = l->n->name;
+	if ( ! (chpt=strchr(l->cnode->name,'.')) )
+		chpt = l->cnode->name;
 	else
 		*(dpt++)=*(chpt++);
 	strcpy(fieldName, chpt);
@@ -69,8 +69,8 @@ char	fieldName[200];
 	}
 #endif
 
-	if ( ! (hasmenu = (l->n->u.r.flags & EcFlgMenuMask)) )
-		if (l->n->u.r.pos2 - l->n->u.r.pos1 == 1)
+	if ( ! (hasmenu = (l->cnode->u.r.flags & EcFlgMenuMask)) )
+		if (l->cnode->u.r.pos2 - l->cnode->u.r.pos1 == 1)
 			hasmenu = -1;
 
 	fprintf(f,"field(%s,DBF_%s) {\n",          fieldName, hasmenu ? "MENU" : "ULONG");
@@ -85,15 +85,18 @@ char	fieldName[200];
 	
 }
 
+extern EcNode ecCreateDirectory(EcCNode);
+
 int
 main(int argc, char ** argv)
 {
 int	i;
 EcMenu	*mp;
 FILE	*f=stdout;
+EcNode  root = ecCreateDirectory(&ecdr814CInfo);
 
-	ecCNodeWalk(&ecdr814CInfo, clearVisited, 0, 0, 0);
-	ecCNodeWalk(&ecdr814CInfo, dbdFieldEntry, 0, 0, f);
+	ecNodeWalk(0, root, clearVisited, 0);
+	ecNodeWalk(0, root, dbdFieldEntry, f);
 
 
 return 0;

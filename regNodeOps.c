@@ -1,8 +1,8 @@
 /* $Id$ */
 
-#define ECDR814_PRIVATE_IF
 #include "regNodeOps.h"
 #include "bitMenu.h"
+
 #include "ecdrRegdefs.h"
 
 #include "ecFastKeys.h"
@@ -11,6 +11,12 @@
 #include <assert.h>
 #include<stdio.h>
 
+
+/* generic register get and put operations.
+ * these perform access validation, range checks
+ * and transformations as well as menu conversion.
+ */
+
 static EcErrStat
 get(EcBoardDesc bd, EcNode node, Val_t *pv)
 {
@@ -18,10 +24,6 @@ EcCNode		n=node->cnode;
 EcErrStat 	rval;
 register 	Val_t val;
 
-	if ( (n->u.r.flags & EcFlgAD6620RStatic) && ! ad6620IsReset(bd,node)) {
-		/* some AD6620 registers may only be read while it is in reset state */
-		return EcErrAD6620NotReset;
-	}
 	rval=ecGetRawValue(bd,node,pv);
 	val = (*pv & ECREGMASK(n))>>ECREGPOS(n);
 	if (!rval && EcFlgMenuMask & n->u.r.flags) {
@@ -56,10 +58,6 @@ EcCNode		n=node->cnode;
 	if (n->u.r.flags & EcFlgReadOnly)
 		return EcErrReadOnly;
 
-	if ((n->u.r.flags & EcFlgAD6620RWStatic) && ! ad6620IsReset(bd,node)) {
-		return EcErrAD6620NotReset;
-	}
-
 	if (n->u.r.flags & EcFlgMenuMask) {
 		EcMenu		m=ecMenu(n->u.r.flags);
 		if (val < 0 || val>m->nels)
@@ -88,6 +86,10 @@ EcCNode		n=node->cnode;
 	}
 }
 
+/* generic getRaw and putRaw operations. These are mere
+ * (big endian) read and writes.
+ */
+
 static EcErrStat
 getRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
 {
@@ -95,7 +97,6 @@ volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
 	*rp = RDBE(vp);
 	return EcErrOK;
 }
-
 
 static EcErrStat
 putRaw(EcBoardDesc bd, EcNode node, Val_t val)
@@ -105,14 +106,158 @@ volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
 	return EcErrOK;
 }
 
+/* AD6620 access operations. Get and Put check for
+ * 'reset state' if necessary and branch to the generic
+ * get/put routines.
+ */
+
+/* we should probably use assert( b & ECDR_AD6620_ALIGNMENT )
+ * NOTE: this routine is a hack because it accesses the MCR
+ *       directly. A cleaner implementation would be
+ *
+ *       {
+ *       assert(EcErrOK==ecLkupNGet(bd, n, BUILD_FKEY2(FK_UPDIR,FK_ad6620_state), &rval));
+ *       return rval;
+ *       }
+ *
+ */
+static inline int
+ad6620IsReset(EcBoardDesc bd, EcNode n)
+{
+IOPtr b=bd->base+n->u.offset;
+int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b) + AD6620_MCR_OFFSET);
+	EIEIO;
+	return rval;
+}
+
+static EcErrStat
+adGet(EcBoardDesc bd, EcNode node, Val_t *pv)
+{
+EcCNode n = node->cnode;
+	if ( (n->u.r.flags & EcFlgAD6620RStatic) && ! ad6620IsReset(bd,node)) {
+		/* some AD6620 registers may only be read while it is in reset state */
+		return EcErrAD6620NotReset;
+	}
+	/* should vector through 'superclass' but this is faster */
+	return get(bd,node,pv);
+}
+
+
+static EcErrStat
+adPut(EcBoardDesc bd, EcNode node, Val_t val)
+{
+EcCNode n = node->cnode;
+	if ((n->u.r.flags & EcFlgAD6620RWStatic) && ! ad6620IsReset(bd,node)) {
+		return EcErrAD6620NotReset;
+	}
+	/* should vector through 'superclass' but this is faster */
+	return put(bd,node,val);
+}
+
+/* raw access to AD6620 registers */
+
+static EcErrStat
+adGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
+{
+volatile Val_t *vp = (Val_t *)(bd->base+node->u.offset);
+
+#if 0 /* doing this in 'get' now */
+	/* filter coefficients must not be dynamically read
+	 * (AD6620 datasheet rev.1)
+	 *
+	 * Note that we should prohibit access to the NCO
+	 * frequency as well if in SYNC_MASTER mode, as this
+	 * would cause a sync pulse. However, we assume
+	 * the AD6620s on an ECDR board to always be sync
+	 * slaves.
+	 */
+	if (n->u.r.flags & EcFlgAD6620RStatic) {
+		/* calculate address of MCR */
+		register volatile Val_t *mcrp = (Val_t*)(AD6620BASE(b) + OFFS_AD6620_MCR);
+		register long	isreset = (RDBE(mcrp) & BITS_AD6620_MCR_RESET);
+			EIEIO; /* make sure there is no out of order hardware access beyond
+				* this point
+				*/
+			if (!isreset) return EcErrAD6620NotReset;
+	}
+#endif
+	/* be careful that the compiler doesn't generate an unaligned access */
+	*rp = (RDBE(vp) & 0xffff) | (((RDBE(vp+1)) & 0xffff)<<16) ;
+	return EcErrOK;
+}
+
+static EcErrStat
+adPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
+{
+volatile Val_t	*vp = (Val_t *)(bd->base+node->u.offset);
+
+#if 0        /* this is now done by the higher level routines */
+	/* allow write attempt to "static" 
+	 * registers only if the receiver is in RESET
+	 * state. At this low level, we leave the abstraction
+	 * behind and dive directly into the guts...
+	 */
+	if ( (n->u.r.flags & EcFlgAD6620RWStatic) ) {
+
+		/* must inspect current state of RESET bit */
+
+		register unsigned long	mcr = RDBE((AD6620BASE(b) + OFFS_AD6620_MCR));
+
+		/* it's OK to do the following:
+		 *  if in reset state
+		 *  - change any other register than MCR
+		 *  - change either the reset bit or any other bit in MCR
+		 *    but not both.
+		 *  if we're out of reset
+		 *  - the only allowed operation
+		 *    is just setting the reset bit
+		 */
+		if ( (BITS_AD6620_MCR_RESET & mcr) ) {
+			if ( OFFS_AD6620_MCR == n->offset ) {
+				/* trying to modify mcr; let's see which bits change: */
+				mcr = (val^mcr) & BITS_AD6620_MCR_MASK;
+				if ( mcr & BITS_AD6620_MCR_RESET) {
+					/* reset bit switched off */
+					if ( mcr & ~BITS_AD6620_MCR_RESET) {
+						/* another bit changed as well */
+						return EcErrAD6620NotReset;
+					}
+					/* TODO do consistency check on all settings */
+				}
+				/* other MCR bits changed while reset held */
+			}
+		} else {
+			/* only flipping reset is allowed */
+			if ( OFFS_AD6620_MCR != n->offset  ||
+			    ((val ^ mcr) & BITS_AD6620_MCR_MASK)
+			     != BITS_AD6620_MCR_RESET )
+				return EcErrAD6620NotReset;
+		}
+		EIEIO; /* make sure there is no out of order hardware access beyond
+			* this point
+			*/
+	}
+#endif
+
+	EIEIO; /* make sure read of old value completes */
+	WRBE(val & 0xffff, vp);
+	EIEIO; /* most probably not necessary in guarded memory */
+	WRBE((val>>16)&0xffff, vp+1);
+	EIEIO; /* just in case they read it back again: enforce
+	        * completion of write before load
+	        */
+	return EcErrOK;
+}
+
+
 static EcErrStat
 rdbckModePutRaw(EcBoardDesc bd, EcNode node, Val_t val)
 {
+#if 0
 /* TODO when writing the readback mode, we also want to check the fifo settings
  * and we have to switch unused channels off; actually, we do that
  * at a higher level...
  */
-#if 0
 EcErrStat	e;
 unsigned long	fifoOff;
 int		tmp,nk,i;
@@ -208,8 +353,10 @@ Val_t		v;
 		return putRaw(bd,node,val);
 }
 
-#if 0 /* DOESNT WORK (no access to the 'parent' node and base address) */
-/* propagate the clock multiplier value to the "clockSame" bit */
+#if 0
+/* TODO propagate the clock multiplier value to the "clockSame" bit;
+ * for now, we leave the driver 'dumb'...
+ */
 
 static EcErrStat
 clkMultPutRaw(EcBoardDesc bd, EcNode node, Val_t rawval)
@@ -335,37 +482,6 @@ Val_t		msb;
 
 
 static EcErrStat
-adGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
-{
-volatile Val_t *vp = (Val_t *)(bd->base+node->u.offset);
-
-#if 0 /* doing this in 'get' now */
-	/* filter coefficients must not be dynamically read
-	 * (AD6620 datasheet rev.1)
-	 *
-	 * Note that we should prohibit access to the NCO
-	 * frequency as well if in SYNC_MASTER mode, as this
-	 * would cause a sync pulse. However, we assume
-	 * the AD6620s on an ECDR board to always be sync
-	 * slaves.
-	 */
-	if (n->u.r.flags & EcFlgAD6620RStatic) {
-		/* calculate address of MCR */
-		register volatile Val_t *mcrp = (Val_t*)(AD6620BASE(b) + OFFS_AD6620_MCR);
-		register long	isreset = (RDBE(mcrp) & BITS_AD6620_MCR_RESET);
-			EIEIO; /* make sure there is no out of order hardware access beyond
-				* this point
-				*/
-			if (!isreset) return EcErrAD6620NotReset;
-	}
-#endif
-	/* be careful that the compiler doesn't generate an unaligned access */
-	*rp = (RDBE(vp) & 0xffff) | (((RDBE(vp+1)) & 0xffff)<<16) ;
-	return EcErrOK;
-}
-
-
-static EcErrStat
 adPutMCR(EcBoardDesc bd, EcNode node, Val_t val)
 {
 EcCNode n=node->cnode;
@@ -411,69 +527,6 @@ EcCNode n=node->cnode;
 }
 
 static EcErrStat
-adPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
-{
-volatile Val_t	*vp = (Val_t *)(bd->base+node->u.offset);
-
-#if 0        /* this is now done by the higher level routines */
-	/* allow write attempt to "static" 
-	 * registers only if the receiver is in RESET
-	 * state. At this low level, we leave the abstraction
-	 * behind and dive directly into the guts...
-	 */
-	if ( (n->u.r.flags & EcFlgAD6620RWStatic) ) {
-
-		/* must inspect current state of RESET bit */
-
-		register unsigned long	mcr = RDBE((AD6620BASE(b) + OFFS_AD6620_MCR));
-
-		/* it's OK to do the following:
-		 *  if in reset state
-		 *  - change any other register than MCR
-		 *  - change either the reset bit or any other bit in MCR
-		 *    but not both.
-		 *  if we're out of reset
-		 *  - the only allowed operation
-		 *    is just setting the reset bit
-		 */
-		if ( (BITS_AD6620_MCR_RESET & mcr) ) {
-			if ( OFFS_AD6620_MCR == n->offset ) {
-				/* trying to modify mcr; let's see which bits change: */
-				mcr = (val^mcr) & BITS_AD6620_MCR_MASK;
-				if ( mcr & BITS_AD6620_MCR_RESET) {
-					/* reset bit switched off */
-					if ( mcr & ~BITS_AD6620_MCR_RESET) {
-						/* another bit changed as well */
-						return EcErrAD6620NotReset;
-					}
-					/* TODO do consistency check on all settings */
-				}
-				/* other MCR bits changed while reset held */
-			}
-		} else {
-			/* only flipping reset is allowed */
-			if ( OFFS_AD6620_MCR != n->offset  ||
-			    ((val ^ mcr) & BITS_AD6620_MCR_MASK)
-			     != BITS_AD6620_MCR_RESET )
-				return EcErrAD6620NotReset;
-		}
-		EIEIO; /* make sure there is no out of order hardware access beyond
-			* this point
-			*/
-	}
-#endif
-
-	EIEIO; /* make sure read of old value completes */
-	WRBE(val & 0xffff, vp);
-	EIEIO; /* most probably not necessary in guarded memory */
-	WRBE((val>>16)&0xffff, vp+1);
-	EIEIO; /* just in case they read it back again: enforce
-	        * completion of write before load
-	        */
-	return EcErrOK;
-}
-
-static EcErrStat
 getCoeffs(EcBoardDesc bd, EcNode node, Val_t *v)
 {
 EcCNode		n=node->cnode;
@@ -499,7 +552,7 @@ unsigned long	*s = (unsigned long *) v;
 int		i;
 EcErrStat	e;
 	if ( ! ad6620IsReset(bd,node)) {
-		/* some coefficients may only be read while it is in reset state */
+		/* coefficients may only be written while in reset state */
 		return EcErrAD6620NotReset;
 	}
 	/* use a dummy node to pass an increasing index to adGetRaw
@@ -510,47 +563,6 @@ EcErrStat	e;
 			return e;
 return EcErrOK;
 }
-
-/* consistency check for decimation factors and number of taps */
-
-/*
-{
-nch = 2 : diversity channel real input, 1 otherwise.
-
-ECHOTEK: I believe it's always in single channel real mode
-
-cic5:  input rate < fclk / 2 / nch
-;
-
-i.e. CIC2 decimation of 1 requires RX clock >= 2 * acquisition clock;
-ECHOTEK: I don't know how the receiver_clock_same (channel pair
-setting) relates to the rx_clock_multiplier0..3 / 4..7 (base
-board setting).
-
-NTAPS requirement:
-
-ntaps < min( 256, fclk * Mrcf / fclk5) / nch
- = min(256, fclk * Mrcf * Mcic5 * Mcic2 / fclck) / nch
-
-ECHOTEK:
-	total decimation register must be set to
-        Mcic2*Mcic5*Mrcf/2 - 1
-	(what to do if it's not even?)
-
-furthermore:
-	1stTap+ntaps <= 256
-
-fclk5 = fclk2 / Mcic5
-
-ECHOTEK: if in dual receiver mode, the number of taps must be even.
-         However, I believe this restriction is only necessary
-         when "interleaving" the dual RX output samples.
-
-         When tuning both AD6620 to different frequencies, they
-         recommend the output rates being integer multiples.
-
-}
-*/
 
 EcCNodeOpsRec	ecDefaultNodeOps = {
 	0, /* super */
@@ -573,9 +585,9 @@ EcCNodeOpsRec ecdr814RegNodeOps = {
 EcCNodeOpsRec ecdr814AD6620RegNodeOps = {
 	&ecdr814RegNodeOps,
 	0,
-	0,
+	adGet,
 	adGetRaw,
-	0,
+	adPut,
 	adPutRaw
 };
 
