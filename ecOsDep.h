@@ -22,6 +22,18 @@
 	sysBusToLocalAdrs(VME_AM_EXT_SUP_DATA, (void*)(vmeaddr), (void**)plocaladdr)
 #   define osdep_local2vme(localaddr, pvmeaddr) \
 	sysLocalToBusAdrs(VME_AM_EXT_SUP_DATA, (void*)(localaddr), (void**)pvmeaddr)
+#elif defined(__rtems)
+#   include <bsp.h>
+#   include <libchip/vmeUniverse.h>
+#warning "TODO: vmeUniverse should be included by bsp.h"
+#   define osdep_vme2local(vmeaddr, plocaladdr) \
+	BSP_vme2local_adrs(VME_AM_EXT_SUP_DATA, \
+		(unsigned long)(vmeaddr), \
+		(unsigned long*)(plocaladdr))
+#   define osdep_local2vme(localaddr, pvmeaddr) \
+	BSP_local2vme_adrs(VME_AM_EXT_SUP_DATA, \
+		(unsigned long)(localaddr), \
+		(unsigned long*)(pvmeaddr))
 #elif defined(__linux)
 #   define osdep_vme2local(vmeaddr, plocaladdr) \
 	((*(plocaladdr)=(vmeaddr)),0)
@@ -38,7 +50,7 @@
 
 #elif defined(__rtems)
 
-#   include "bspExt.h"
+#   include <bsp/bspExt.h>
 
 #   define osdep_memProbe(addr, writeNotRead, nBytes, pVal) \
 	bspExtMemProbe((void*)(addr),(writeNotRead),(nBytes),(void*)(pVal))
@@ -67,6 +79,16 @@
 				(int)arg)
 #	define osdep_intEnable(level) \
 		intEnable(level)
+#elif defined(__rtems)
+#	define osdep_IRQ_HANDLER_PROTO(name, arg) \
+		void name(unsigned long vector, void *arg)
+
+#	define osdep_intConnect(vector, handler, arg) \
+		BSP_installVME_isr( vector, handler, arg )
+
+#	define osdep_intEnable(level) \
+		BSP_enableVME_int_lvl(level)
+
 #else
 #	define osdep_IRQ_HANDLER_PROTO(name, arg) \
 		void name(void *arg)
