@@ -24,7 +24,7 @@ extern EcMenu drvrEcdr814Menus[];
 int
 ecFindMenuIndex(char *name);
 
-extern inline
+static inline
 EcMenu ecMenu(int index)
 {
 return	drvrEcdr814Menus[index & EcFlgMenuMask];
