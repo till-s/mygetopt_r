@@ -17,7 +17,10 @@ ifeq "$(CROSS_COMPILE)" "host-"
 	CROSS_COMPILE=
 endif
 
-all: subdirs
+all: subdirs rtems
+
+rtems:
+	make -f Makefile.rtems all
 
 .PHONY: prebuild subdirs $(SUBDIRS)
 subdirs: $(SUBDIRS)
@@ -72,7 +75,8 @@ genHeaders: genHeaders.o ecDb.o bitMenu.o
 
 
 clean:
-	$(RM) -r O.host O.tgt
+	$(RM) -r $(SUBDIRS)
+	make -f Makefile.rtems $@
 
 allclean: clean
 	$(RM) fastKeyDefs.h menuDefs.h
@@ -81,6 +85,10 @@ DEPSUBDS = $(SUBDIRS:%=%.depend)
 
 .PHONY: $(DEPSUBDS)
 depend: prebuild $(DEPSUBDS)
+	make -f Makefile.rtems depend
+
+rtems-depend:
+	make -f Makefile.rtems depend
 	
 
 $(DEPSUBDS):
