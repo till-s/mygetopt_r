@@ -107,7 +107,6 @@ EcBoardDesc bd= pbd ? *pbd : 0;
 	if (EC_ROOT_LOOKUP==n) n=bd ? bd->root : ecdr814Board; /* set to top */
 
 	if ((bne=strchr(k,EC_BRDSEP_CHAR))) {
-		int i;
 		k=bne+1;
 		/* search for the board descriptor */
 		if (!(bd=ecBoardDescLookup(key, bne-key)))
