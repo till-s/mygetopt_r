@@ -14,6 +14,7 @@
 #define Mfr	EC_MENU_freqRange
 #define Mcm	EC_MENU_clockMult
 #define Mro	EC_MENU_resetRunning
+#define Mpr	EC_MENU_dualRxMode
 #define RST	EcFlgAD6620RStatic
 #define RWST	EcFlgAD6620RWStatic
 
@@ -81,7 +82,7 @@ static EcNodeDirRec ad6620RawDir = {EcdrNumberOf(ad6620RawRegDefs), ad6620RawReg
 static EcNodeRec ecdrChannelRegDefs[] = {
 {	"trigMode",	EcReg,		0x0,	REGUNION( 1, 4,		Mtm|NI,	0)		},			/* set by the readback mode */
 {	"counterEna",	EcReg,		0x0,	REGUNBIT( 4, 5,		0,	0)		},
-{	"rxParallel",	EcReg,		0x0,	REGUNBIT( 5, 6,		0,	0)		},
+{	"rxParallel",	EcReg,		0x0,	REGUNBIT( 5, 6,		Mpr,	1)		},
 {	"trigClear",	EcReg,		0x0,	REGUNBIT( 15, 16,	0,	0)		},
 {	"modeSelect",	EcReg,		0x4,	REGUNION( 0, 3,		Mms,	0)		},
 {	"channelID",	EcReg,		0x4,	REGUNLMT( 3, 6,		NI,	0,		0,	7,	0)},	/* filled in at driver ini */
@@ -162,8 +163,8 @@ static EcNodeRec ecdrBoardRegDefs[] = {
 {	"swSync",	EcReg,		0x0,	REGUNBIT( 10, 11,	0,	0)		},
 {	"pktCntRst",	EcReg,		0x0,	REGUNBIT( 11, 12,	0,	0)		},
 {	"lclBusRst",	EcReg,		0x0,	REGUNBIT( 12, 13, 	0,	0)		},
-{	"clkMult03",	EcClkMultReg,	0x0,	REGUNION( 17, 19,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
-{	"clkMult47",	EcClkMultReg,	0x0,	REGUNION( 19, 21,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
+{	"clkMult03",	EcReg,		0x0,	REGUNION( 17, 19,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
+{	"clkMult47",	EcReg,		0x0,	REGUNION( 19, 21,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
 {	"fifoStat",	EcDir,		0x4,	{ d: &fifoStatDir }		},
 {	"intVec",	EcReg,		0x8,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
 {	"intMsk",	EcReg,		0xc,	REGUNLMT( 0, 11,	0,	0,		0,	0x7ff,	0)},
@@ -213,6 +214,7 @@ EcNodeRec	ecdr814RawBoard = {
 #undef Mfr
 #undef Mcm
 #undef Mro
+#undef Mpr
 #undef RST
 #undef RWST
 #undef NUM_C

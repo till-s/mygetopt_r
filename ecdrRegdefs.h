@@ -47,6 +47,12 @@
 #define BITS_AD6620_MCR_RESET	(1<<0)
 #define AD6620_MCR_OFFSET	0x1800
 
+/* there's no point putting these into the database
+ * as they are only used by lowlevel routines
+ */
+#define CY961_OFFSET		(0x8000)
+#define FIFO_OFFSET		(0x100000)
+
 #if 0
 #define BITS_AD6620_MCR_MASK	((1<<8)-1)	/* bits that are actually used in this register */
 #endif
@@ -71,8 +77,10 @@ ad6620ConsistencyCheck(EcNode n, IOPtr b);
 #define RDBE(addr) (*((volatile Val_t *)(addr)))
 #define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
 #else
+#if defined(DEBUG) && defined(__linux)
 #define RDBE(addr) (*((volatile Val_t *)(addr)))
 #define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
+#endif
 #endif
 
 /* we should probably use assert( b & ECDR_AD6620_ALIGNMENT ) */

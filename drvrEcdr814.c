@@ -8,6 +8,8 @@
 #include "ecdrRegdefs.h"
 #include "ecFastKeys.h"
 
+#include "ecOsDep.h"
+
 static int drvrInited=0;
 
 static void
@@ -40,20 +42,39 @@ EcNodeRec ecRootNode={
 
 
 EcErrStat
-ecAddBoard(char *name, IOPtr b)
+ecAddBoard(char *name, IOPtr vme_b, EcBoardDesc *pdesc)
 {
 EcErrStat	rval=EcError;
 EcNodeDir	bd=&boardDirectory;
 EcNode		n;
+IOPtr		b;
+Val_t		v;
 	/* lazy init */
 	if ( ! drvrInited )
 		drvrEcdr814Init();
 
+	if (pdesc) *pdesc=0;
+
 	/* ecdrRegdefs.h makes the assumption that
 	 * the base address is aligned to 0x1fff
 	 */
-	assert( ! ((unsigned long)b & ECDR_BRDREG_ALIGNMENT) );
-	/* try to detect board */
+	assert( ! ((unsigned long)vme_b & ECDR_BRDREG_ALIGNMENT) );
+	/* map vme address to local */
+	assert(0==osdep_vme2local(vme_b, &b));
+	/* TODO try to detect board; they should
+	 * really provide a RO register with a
+	 * (version etc.) signature...
+	 */
+	assert(0==osdep_memProbe(b/* TODO + feature register offset */,
+				  0/* read */, 
+				  4/* bytes */,
+				  &v));
+
+#if 0 /* TODO check against known value, firmware version etc */
+	/* use RDBE for portability */
+	assert( RDBE(&v) == SOME_VALUE );
+#endif
+
 	/* initialize */
 	/* raw initialization sets pretty much everything to zero */
 	walkEcNode( &ecdr814RawBoard, putIniVal, b, 0, 0);
@@ -101,6 +122,13 @@ EcNode		n;
 	sprintf(n->name,"%s_raw",name);
 	rval=EcErrOK;
 
+	if (pdesc) {
+		*pdesc=(EcBoardDesc)malloc(sizeof(EcBoardDescRec));
+		(*pdesc)->node = n;
+		(*pdesc)->base = b;
+		(*pdesc)->vmeBase = vme_b;
+	}
+
 cleanup:
 	return rval;
 
@@ -127,6 +155,9 @@ static char *ecErrNames[] = {
 	"value out of range",
 	"too many taps for total decimation",
 	"invalid array index",
+	"misaligned DMA buffer",
+	"DMA engine busy",
+	"DMA setup invalid",
 };
 
 char *
@@ -148,3 +179,24 @@ vfprintf(stderr,message,ap);
 va_end(ap);
 }
 
+EcFKey
+ecBFk(EcFKey first, ...)
+{
+EcFKey	rval=EMPTY_FKEY;
+/* there cannot be fastkey paths longer than this */
+EcFKey	stack[8*sizeof(EcFKey)/FKEY_LEN + 1];
+va_list	ap;
+int	sp=0;
+
+	va_start(ap, first);
+	stack[sp++]=first;
+
+	while (EMPTY_FKEY != (stack[sp++]=va_arg(ap, EcFKey)))
+		/* do nothing */;
+	va_end(ap);
+
+	/* now reverse the stack */
+	while (--sp >= 0) 
+		rval = (rval << FKEY_LEN) | stack[sp];
+	return rval;
+}

@@ -73,7 +73,7 @@ printf("node size: %i\n",sizeof(EcNodeRec));
 //walkEcNode( &root, putIniVal, 0, 0, 0);
 //walkEcNode( &root, printNodeName, 0, 0, 0);
 //walkEcNode( &ecdr814RawBoard, printNodeName, &b, 0, 0);
-ecAddBoard("B0",tstdev);
+ecAddBoard("B0",tstdev,0);
 #endif
 
 if (argc<2)

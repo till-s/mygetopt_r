@@ -14,9 +14,8 @@
 typedef enum {
 	EcDir = 0,
 	EcReg,
-	EcBrstCntReg,
-	EcClkMultReg,
 	EcFifoReg,
+	EcBrstCntReg,
 	EcRdBckReg,
 	EcAD6620Reg,
 	EcAD6620MCR,
@@ -207,7 +206,109 @@ extern EcNodeRec	ecdr814RawBoard;
 /* initialize the driver */
 void drvrEcdr814Init(void);
 
-/* register a board with the driver */
-EcErrStat ecAddBoard(char *name, IOPtr baseAddress);
+typedef struct EcBoardDescRec_ {
+	EcNode		node;		/* node for this board */
+	IOPtr		base;		/* base address seen by CPU */
+/* do not use fields below here; they are 'private' to the driver */
+	IOPtr		vmeBase;	/* base address as seen on VME */
+} EcBoardDescRec;
+
+typedef struct EcBoardDescRec_ *EcBoardDesc;
+
+/* register a board with the driver
+ *
+ * baseAddress is the board's address
+ * on the VME bus (as set by the DIP switches)
+ *
+ * this routine returns a handle to a board
+ * descriptor record. If unneeded, 0 may be passed.
+ */
+EcErrStat ecAddBoard(char *name, IOPtr baseAddress, EcBoardDesc *pdesc);
+
+/* DMA stuff */
+
+typedef unsigned long BEUlong; /* emphasize that it's big endian */
+
+#ifdef ECDR814_PRIVATE_IF
+
+#define VBEUlong volatile BEUlong
+typedef struct EcDMARegsRec_ {
+	/* register contents as used
+	 * by the CY961
+	 */
+/* NOTE the bits in 'sema' are "active low"
+ *      i.e. the bit must be tested for 0 value:
+ *         is_busy =  ! (sema & EC_CY961_SEMA_BUSY);
+ */
+#define EC_CY961_SEMA_MASK	(0xff)
+#define EC_CY961_SEMA_BUSY	(1<<0)	/* read of sema sets this to 1 */
+#define EC_CY961_SEMA_MIRQ	(1<<1)	/* master block irq pending    */
+#define EC_CY961_SEMA_TLM0	(1<<2)	/* xfer multiplier is 0        */
+#define EC_CY961_SEMA_TTUN	(1<<3)	/* undefined xfer type         */
+#define EC_CY961_SEMA_DTSZ	(1<<4)	/* data size unaligned to addr */
+#define EC_CY961_SEMA_ALGN	(1<<5)	/* address alignment violation */
+#define EC_CY961_SEMA_VMEA	(1<<6)	/* no new VME starting address */
+#define EC_CY961_SEMA_BERR	(1<<7)	/* BERR* or LERR*              */
+	VBEUlong	sema;	/* semaphore test & set                */
+	VBEUlong	tlm0;	/* xfer length multiplier 0            */
+	VBEUlong	tlm1;	/* xfer length multiplier 1            */
+#define EC_CY961_XFRT_MTRD	(1<<0)
+#define EC_CY961_XFRT_DTSZ_MSK	(3<<1)
+#define EC_CY961_XFRT_DTSZ_D08	(0<<1)
+#define EC_CY961_XFRT_DTSZ_D16	(1<<1)
+#define EC_CY961_XFRT_DTSZ_D32	(2<<1)
+#define EC_CY961_XFRT_DTSZ_D64	(3<<1)
+#define EC_CY961_XFRT_TYPE_MSK	(0x1f<<3)
+/* Note: not all possible modes are defined here */
+#define EC_CY961_XFRT_TYPE_A32_SB    (0x10)  /* A32 SUP BLT            */
+#define EC_CY961_XFRT_TYPE_A32_SD    (0xc8)  /* A32 SUP data           */
+#define EC_CY961_XFRT_TYPE_A32_SB64  (0x50)  /* A32 64 bit BLT         */
+	VBEUlong	xfrt;	/* transfer type                       */
+	VBEUlong	ladr;   /* block (CY) local address and GO     */
+	VBEUlong	vadr;	/* block VME address                   */
+	VBEUlong	uadr;   /* VME A40/A64 upper address           */
+#define EC_CY961_MCSR_IENA	(1<<0)	/* enable master block VME irq */
+	VBEUlong	mcsr;	/* master block status & irq           */
+} EcDMARegsRec, *EcDMARegs;
+
+#undef VBEUlong
+#endif
+
+/* NOTE:
+ * 	The EcDMADescRec struct is declared here _only_
+ *      for the purpose of memory allocation.
+ *      Its fields should _not_ be accessed by the
+ *	application in any way.
+ */ 
+
+typedef struct EcDMADescRec_ {
+	BEUlong		tlm0;	/* xfer length multiplier 0            */
+	BEUlong		tlm1;	/* xfer length multiplier 1            */
+	BEUlong		xfrt;
+	BEUlong		vadr;	/* block VME address                   */
+	BEUlong		mcsr;	/* master block status & irq           */
+} EcDMADescRec, *EcDMADesc;
+
+/* initialize a DMA descriptor record
+ * NOTE that the transfer size (and hence the fifo burst counts)
+ * must be a multiple of 16*4 bytes (D32) or 64*4 bytes (D64)!
+ */
+typedef enum {
+	EcDMA_D64=(1<<0),	/* do D64 transfer (as opposed to D32  */
+	EcDMA_IEN=(1<<1)	/* enable IRQ when done; APP MUST INSTALL HANDLER */
+} EcDMAFlags;
+
+EcErrStat
+ecSetupDMADesc( EcDMADesc  desc,   /* descriptor to be initialized */
+		void	   *buffer,/* buffer address */
+		int	   size,   /* buffer size */
+		EcDMAFlags flags); /* see below */
+
+
+/* start DMA on a board using buffer described
+ * by d. d must have been initialized by ecSetupDMA before.
+ */
+EcErrStat
+ecStartDMA( EcBoardDesc board, EcDMADesc d);
 
 #endif

@@ -16,7 +16,10 @@ typedef enum {
 	EcErrAD6620NotReset = -7,	/* AD6620 writes only allowed while reset */
 	EcErrOutOfRange = -8,		/* Value out of range */
 	EcErrTooManyTaps = -9,		/* too many taps for total decimation */
-	EcErrInvalidIndex = -10		/* invalid array index */
+	EcErrInvalidIndex = -10,	/* invalid array index */
+	EcErrMisaligned = -11,		/* unaligned DMA buffer */
+	EcErrDMABusy = -12,		/* DMA engine busy */
+	EcErrDMASetup = -13		/* invalid DMA setup */
 	/* if adding error codes, ecStrError must be updated */
 } EcErrStat;
 

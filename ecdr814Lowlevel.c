@@ -1,11 +1,14 @@
 /* $Id$ */
 
+#define ECDR814_PRIVATE_IF
 #include "drvrEcdr814.h"
 #include "ecdrRegdefs.h"
 #include "ecErrCodes.h"
 #include "regNodeOps.h"
 
 #include "ecFastKeys.h"
+
+#include "ecOsDep.h"
 
 /* This file contains really lowlevel stuff */
 
@@ -137,4 +140,69 @@ if (mCiC2 < 2 )
 	return EcErrTooManyTaps;
 
 return EcErrOK;
+}
+
+EcErrStat
+ecSetupDMADesc( EcDMADesc d, void *buf, int size, EcDMAFlags flags)
+{
+	void *vmeaddr;
+
+	if ( EcDMA_D64 & flags ) {
+		if (size % 128) return EcErrOutOfRange;
+		size /= 128;
+		WRBE( EC_CY961_XFRT_DTSZ_D64 | EC_CY961_XFRT_TYPE_A32_SB64,
+			&d->xfrt );
+	} else {
+		if (size % 64) return EcErrOutOfRange;
+		size /= 64;
+		WRBE( EC_CY961_XFRT_DTSZ_D32 | EC_CY961_XFRT_TYPE_A32_SB,
+			&d->xfrt );
+	}
+
+	if ( osdep_local2vme(buf, &vmeaddr) )
+		return EcError;
+
+	if ( (unsigned long)vmeaddr % ((flags & EcDMA_D64) ? 256 : 4) )
+		return EcErrMisaligned;
+
+	WRBE( (size & 0xff), &d->tlm0);
+	WRBE( ((size >> 8) & 0xff), &d->tlm1);
+	WRBE( (unsigned long)vmeaddr, &d->vadr );
+
+	if (flags & EcDMA_IEN)
+		WRBE( EC_CY961_MCSR_IENA, &d->mcsr );
+	else
+		WRBE( 0, &d->mcsr );
+
+	return EcErrOK;
+}
+
+EcErrStat
+ecStartDMA(EcBoardDesc brd, EcDMADesc d)
+{
+	EcDMARegs r = (EcDMARegs) (brd->base + CY961_OFFSET);
+
+	/* get the semaphore; remember that the flags are "active low" */
+	if ( ! (EC_CY961_SEMA_BUSY & r->sema) )
+		return EcErrDMABusy;
+	/* initialize the dma registers;
+	 * the descriptor already holds big endian values...
+	 */
+	r->tlm0 = d->tlm0;
+	r->tlm1 = d->tlm1;
+	r->xfrt = d->xfrt;
+	r->vadr = d->vadr;
+	/* I believe r->uadr is unused by the ecdr */
+	r->mcsr = d->mcsr;
+
+	/* verify the settings */
+	if (  EC_CY961_SEMA_BUSY != ((~(r->sema)) & EC_CY961_SEMA_MASK)) {
+		/* release semaphore and return error */
+		r->sema = EC_CY961_SEMA_BUSY; /* flags are "active low" */
+		return EcErrDMASetup;
+	}
+	/* seems ok, issue GO writing the board's local address */
+	WRBE( (unsigned long)brd->vmeBase | FIFO_OFFSET, &r->ladr );
+
+	return EcErrOK;
 }

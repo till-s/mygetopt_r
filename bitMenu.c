@@ -112,6 +112,15 @@ static EcMenuRec		clkMultMenu = {
 	"clockMult",	MNumberOf(clkMultItems),  (0x3),	clkMultItems
 };
 
+static EcMenuItemRec		dualRxModeItems[] = {
+	{ "interleaved",	(0x0)},
+	{ "parallel",		(0x1)},
+};
+
+static EcMenuRec		dualRxModeMenu = {
+	"dualRxMode",	MNumberOf(dualRxModeItems),  (0x1),	dualRxModeItems
+};
+
 EcMenu	drvrEcdr814Menus[] = {
 	0,	/* dummy entry to avoid 1 index */
 	&onOffMenu,
@@ -123,6 +132,7 @@ EcMenu	drvrEcdr814Menus[] = {
 	&freqRangeMenu,
 	&clkMultMenu,
 	&resetMenu,
+	&dualRxModeMenu,
 	0,	/* tag end of list */
 };
 

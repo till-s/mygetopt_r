@@ -206,6 +206,7 @@ Val_t		v;
 		return putRaw(n,b,val);
 }
 
+#if 0 /* DOESNT WORK (no access to the 'parent' node and base address) */
 /* propagate the clock multiplier value to the "clockSame" bit */
 
 static EcErrStat
@@ -235,6 +236,7 @@ EcFKey		k[2];
 		/* eventually, write the board CSR */
 		return putRaw(n,b,rawval);
 }
+#endif
 
 #define FIFO_OFFREG	0x40
 #define FIFOCTL_USE_OFF	(1<<5)
@@ -608,14 +610,6 @@ EcNodeOpsRec ecdr814RdBckRegNodeOps = {
 	rdbckModePutRaw
 };
 
-EcNodeOpsRec ecdr814ClkMultRegNodeOps = {
-	&ecdr814RegNodeOps,
-	0,
-	0,
-	0,
-	0,
-	clkMultPutRaw
-};
 
 static EcNodeOps nodeOps[10]={&ecDefaultNodeOps,};
 
@@ -707,7 +701,6 @@ initRegNodeOps(void)
 	addNodeOps(&ecdr814AD6620RegNodeOps, EcAD6620Reg);
 	addNodeOps(&ecdr814AD6620MCRNodeOps, EcAD6620MCR);
 	addNodeOps(&ecdr814BrstCntRegNodeOps, EcBrstCntReg);
-	addNodeOps(&ecdr814ClkMultRegNodeOps, EcClkMultReg);
 	addNodeOps(&ecdr814FifoRegNodeOps, EcFifoReg);
 	addNodeOps(&ecdr814RdBckRegNodeOps, EcRdBckReg);
 	addNodeOps(&ecdr814AD6620RCFNodeOps, EcAD6620RCF);

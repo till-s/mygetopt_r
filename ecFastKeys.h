@@ -2,6 +2,8 @@
 #ifndef EC_FAST_KEY_TILL_H
 #define EC_FAST_KEY_TILL_H
 
+#include <stdarg.h>
+
 /* fast key implementation */
 #include "drvrEcdr814.h"
 
@@ -9,11 +11,20 @@
 #include "fastKeyDefs.h"
 #endif
 
+/* macros to build fastkey paths (for hardcoding) */
 #define FASTKEY_PREPEND( prevkey, key) (((key)<<FKEY_LEN) | prevkey)
 #define BUILD_FKEY1(a) 		(a)
 #define BUILD_FKEY2(a,b) 	FASTKEY_PREPEND( a, b)
 #define BUILD_FKEY3(a,b,c)	FASTKEY_PREPEND( a, FASTKEY_PREPEND(b, c))
 #define BUILD_FKEY4(a,b,c,d) 	FASTKEY_PREPEND( a, FASTKEY_PREPEND( b, FASTKEY_PREPEND(c, d)))
+
+/*  slower routine but more comfortable:
+ *  This composes a fastkey path out of
+ *  a vararg list which must be terminated
+ *  by an empty key.
+ */
+EcFKey
+ecBFk(EcFKey first, ...);
 
 #define EMPTY_FKEY		((EcFKey)0)
 
