@@ -225,9 +225,23 @@ typedef struct EcBoardDescRec_ *EcBoardDesc;
  */
 EcErrStat ecAddBoard(char *name, IOPtr baseAddress, EcBoardDesc *pdesc);
 
+/* get the board descriptor of the nth board */
+EcBoardDesc ecGetBoardDesc(int instance);
+
 /* DMA stuff */
 
 typedef unsigned long BEUlong; /* emphasize that it's big endian */
+
+#define EC_CY961_SEMA_MASK	(0xff)
+#define EC_CY961_SEMA_ERR_MASK	(0xfc)
+#define EC_CY961_SEMA_BUSY	(1<<0)	/* read of sema sets this to 1 */
+#define EC_CY961_SEMA_MIRQ	(1<<1)	/* master block irq pending    */
+#define EC_CY961_SEMA_TLM0	(1<<2)	/* xfer multiplier is 0        */
+#define EC_CY961_SEMA_TTUN	(1<<3)	/* undefined xfer type         */
+#define EC_CY961_SEMA_DTSZ	(1<<4)	/* data size unaligned to addr */
+#define EC_CY961_SEMA_ALGN	(1<<5)	/* address alignment violation */
+#define EC_CY961_SEMA_VMEA	(1<<6)	/* no new VME starting address */
+#define EC_CY961_SEMA_BERR	(1<<7)	/* BERR* or LERR*              */
 
 #ifdef ECDR814_PRIVATE_IF
 
@@ -240,15 +254,6 @@ typedef struct EcDMARegsRec_ {
  *      i.e. the bit must be tested for 0 value:
  *         is_busy =  ! (sema & EC_CY961_SEMA_BUSY);
  */
-#define EC_CY961_SEMA_MASK	(0xff)
-#define EC_CY961_SEMA_BUSY	(1<<0)	/* read of sema sets this to 1 */
-#define EC_CY961_SEMA_MIRQ	(1<<1)	/* master block irq pending    */
-#define EC_CY961_SEMA_TLM0	(1<<2)	/* xfer multiplier is 0        */
-#define EC_CY961_SEMA_TTUN	(1<<3)	/* undefined xfer type         */
-#define EC_CY961_SEMA_DTSZ	(1<<4)	/* data size unaligned to addr */
-#define EC_CY961_SEMA_ALGN	(1<<5)	/* address alignment violation */
-#define EC_CY961_SEMA_VMEA	(1<<6)	/* no new VME starting address */
-#define EC_CY961_SEMA_BERR	(1<<7)	/* BERR* or LERR*              */
 	VBEUlong	sema;	/* semaphore test & set                */
 	VBEUlong	tlm0;	/* xfer length multiplier 0            */
 	VBEUlong	tlm1;	/* xfer length multiplier 1            */
@@ -301,7 +306,7 @@ typedef enum {
 EcErrStat
 ecSetupDMADesc( EcDMADesc  desc,   /* descriptor to be initialized */
 		void	   *buffer,/* buffer address */
-		int	   size,   /* buffer size */
+		int	   size,   /* buffer size (in bytes) */
 		EcDMAFlags flags); /* see below */
 
 
@@ -315,5 +320,18 @@ ecStartDMA( EcBoardDesc board, EcDMADesc d);
 #define ECDR814_INT_VEC		0xee
 #define CY7C961_GOOD_INT_VEC	0xc1
 #define CY7C961_BAD_INT_VEC	0xc0
+
+/* a fast way of reading the interrupt status register
+ * without going through the database
+ */
+unsigned long
+ecGetIntStat( EcBoardDesc bd);
+
+/* get the sema status register of the CY961
+ * NOTE: the returned value has been _inverted_, i.e.
+ * the bit values are "active high"...
+ */
+unsigned long
+ecGetCYSemaStat( EcBoardDesc bd);
 
 #endif

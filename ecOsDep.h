@@ -56,13 +56,23 @@
 /* interrupt handlers */
 
 #if defined(__vxworks)
+#include <intLib.h>
+#include <iv.h>
 #	define osdep_IRQ_HANDLER_PROTO(name, arg) \
 		void name(void *arg)
 
 #	define osdep_intConnect(vector, handler, arg) \
 		intConnect(	(VOIDFUNCPTR*)INUM_TO_IVEC(vector),\
-				(VOIDFUNCPTR*)handler,\
+				(VOIDFUNCPTR)handler,\
 				(int)arg)
+#	define osdep_intEnable(level) \
+		intEnable(level)
+#else
+#	define osdep_IRQ_HANDLER_PROTO(name, arg) \
+		void name(void *arg)
+
+#	define osdep_intConnect(vector, handler, arg)
+#	define osdep_intEnable(level)
 #endif
 
 #endif

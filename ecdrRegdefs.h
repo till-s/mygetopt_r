@@ -53,6 +53,10 @@
 #define CY961_OFFSET		(0x8000)
 #define FIFO_OFFSET		(0x100000)
 
+/* the interrupt status register */
+#define ECDR_INT_STAT_OFFSET	(0x10)
+#define ECDR_INT_STAT_MSK	(0x7ff)
+
 #if 0
 #define BITS_AD6620_MCR_MASK	((1<<8)-1)	/* bits that are actually used in this register */
 #endif

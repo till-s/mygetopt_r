@@ -28,6 +28,8 @@ EcNodeRec ecRootNode={
 	
 };
 
+static EcBoardDesc	boards[16];
+static int		nBoards=0;
 
 /* try to locate an  ECDR814 board at
  * base address 'b'.
@@ -113,7 +115,23 @@ Val_t		v;
 	n->offset=(unsigned long)b;
 	n->t = EcDir;
 	n->u.d.n = ecdr814Board.u.d.n;
+
+	if (EcdrNumberOf(boards)<=nBoards) {
+		rval=EcErrOutOfRange;
+		goto cleanup;
+	}
+
+	boards[nBoards] = (EcBoardDesc)malloc(sizeof(EcBoardDescRec));
+	boards[nBoards]->node = n;
+	boards[nBoards]->base = b;
+	boards[nBoards]->vmeBase = vme_b;
+	if (pdesc) {
+		*pdesc=boards[nBoards];
+	}
+	nBoards++;
+
 	n++;
+
 	/* create board entry for access to raw registers */
 	n->name=malloc(strlen(name)+5);
 	n->offset=(unsigned long)b;
@@ -122,18 +140,18 @@ Val_t		v;
 	sprintf(n->name,"%s_raw",name);
 	rval=EcErrOK;
 
-	if (pdesc) {
-		*pdesc=(EcBoardDesc)malloc(sizeof(EcBoardDescRec));
-		(*pdesc)->node = n;
-		(*pdesc)->base = b;
-		(*pdesc)->vmeBase = vme_b;
-	}
 
 cleanup:
 	return rval;
 
 }
 
+EcBoardDesc ecGetBoardDesc(int instance)
+{
+	if (instance < 0 || instance >=nBoards)
+		return 0;
+	return boards[instance];
+}
 
 void
 drvrEcdr814Init(void)

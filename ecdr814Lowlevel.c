@@ -206,3 +206,16 @@ ecStartDMA(EcBoardDesc brd, EcDMADesc d)
 
 	return EcErrOK;
 }
+
+unsigned long
+ecGetIntStat(EcBoardDesc bd)
+{
+return RDBE(bd->base + ECDR_INT_STAT_OFFSET) & ECDR_INT_STAT_MSK;
+}
+
+unsigned long
+ecGetCYSemaStat( EcBoardDesc bd)
+{
+	EcDMARegs r = (EcDMARegs) (bd->base + CY961_OFFSET);
+	return (~(r->sema)) & 0xff;
+}
