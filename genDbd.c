@@ -70,7 +70,7 @@ char	fieldName[200];
 #endif
 
 	if ( ! (hasmenu = (l->cnode->u.r.flags & EcFlgMenuMask)) )
-		if (l->cnode->u.r.pos2 - l->cnode->u.r.pos1 == 1)
+		if (l->cnode->u.r.u.s.pos2 - l->cnode->u.r.u.s.pos1 == 1)
 			hasmenu = -1;
 
 	fprintf(f,"field(%s,DBF_%s) {\n",          fieldName, hasmenu ? "MENU" : "ULONG");

@@ -11,17 +11,17 @@
  * use this.
  */
 
-#define ECREGMASK(n) (((1<<((n)->u.r.pos1))-1) ^ \
-		       (((n)->u.r.pos2 & 31 ? 1<<(n)->u.r.pos2 : 0)-1))
-#define ECREGPOS(n) ((n)->u.r.pos1)
+#define ECREGMASK(n) (((1<<((n)->u.r.u.s.pos1))-1) ^ \
+		       (((n)->u.r.u.s.pos2 & 31 ? 1<<(n)->u.r.u.s.pos2 : 0)-1))
+#define ECREGPOS(n) ((n)->u.r.u.s.pos1)
 
 typedef struct EcCNodeOpsRec_ {
 	struct EcCNodeOpsRec_ *super;
 	int			initialized; 	/* must be initialized to 0 */
 	EcErrStat	(*get)(EcBoardDesc bd, EcNode n, Val_t *pv);
-	EcErrStat	(*getRaw)(EcBoardDesc bd, EcNode n, Val_t *pv);
+	EcErrStat	(*getRaw)(IOPtr *addr, EcNode n, Val_t *pv);
 	EcErrStat	(*put)(EcBoardDesc bd, EcNode n, Val_t v);
-	EcErrStat	(*putRaw)(EcBoardDesc bd, EcNode n, Val_t v);
+	EcErrStat	(*putRaw)(IOPtr *addr, EcNode n, Val_t v);
 } EcCNodeOpsRec, *EcCNodeOps;
 
 extern EcCNodeOpsRec ecdr814RegNodeOps;

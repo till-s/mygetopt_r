@@ -157,7 +157,7 @@ int	pad=0;
 			int nels=1,i;
 			EcErrStat e;
 			if ( EcCNodeIsArray(n) ) {
-				nels = n->u.r.pos2;
+				nels = n->u.r.u.a.len;
 				pv = memp = (Val_t*) malloc(sizeof(Val_t)*nels);
 			}
 			e=(ecGetValue(bd, l, pv) || (1==nels && ecGetRawValue(bd, l, &rv)));
@@ -272,18 +272,39 @@ typedef struct RGlobParmsRec_ {
 static EcErrStat
 rglob(EcNode n, EcKey append, EcKey globPat, RGlobParms p)
 {
-unsigned char i, *ptr;
+unsigned char	i, *ptr;
+int		l;
+EcErrStat	rval;
 	if (!n || !EcNodeIsDir(n)) return EcErrNodeNotFound;
+	/* check for .. */
+	if (!strncmp(globPat, EC_UPDIR_NAME, EC_UPDIR_NAME_LEN)) {
+		ptr = globPat+EC_UPDIR_NAME_LEN;
+		if (EC_DIRSEP_CHAR == *ptr) {
+			/* ../ detected */
+			ptr++;
+			l=sprintf(append,"%s%c",EC_UPDIR_NAME,EC_DIRSEP_CHAR);
+			return rglob(n->parent, append+l, ptr, p);
+		} else if ( ! *ptr) {
+			/* end of pattern reached; invoke fn and return */
+			sprintf(append,EC_UPDIR_NAME);
+			rval = EcErrOK;
+			if ((EcNodeIsDir(n->parent) && (GLB_OPT_DIRS & p->options)) ||
+			    (!EcNodeIsDir(n->parent) && (GLB_OPT_LEAVES & p->options)) ) {
+				p->count++;
+				rval = (*p->fn)(p->expansion, p->fnargs);
+			}
+			return rval;
+
+		} /* else, not a valid .. pattern, continue normally */
+	}
 	for (i=0; i<n->cnode->u.d.n->nels; i++) {
 		/* try to match a path element */
 		if ((ptr=globMatch(n->cnode->u.d.n->nodes[i].name, globPat))) {
-			EcErrStat	rval;
 			/* match */
 			if (*ptr && EC_IDXO_CHAR != *ptr) ptr++; /* skip dirsep etc. char */
 			if (*ptr && EC_IDXO_CHAR != *ptr) {
 				/* end of pattern not reached yet */
 				if (EcNodeIsDir(&n->u.entries[i])) {
-					int l;
 					/* append the name */
 					l=sprintf(append,"%s%c",
 						n->cnode->u.d.n->nodes[i].name,
@@ -298,12 +319,13 @@ unsigned char i, *ptr;
 					);
 				/* end of pattern reached, invoke fn */
 				rval = EcError;
-				if (EcNodeIsDir(&n->u.entries[i]) && (GLB_OPT_DIRS & p->options))
-					rval = EcErrOK;
-				else if (GLB_OPT_LEAVES & p->options)
+				if (EcNodeIsDir(&n->u.entries[i])) {
+				       if (GLB_OPT_DIRS & p->options)
+						rval = EcErrOK;
+				} else if (GLB_OPT_LEAVES & p->options)
 					rval = EcErrOK;
 
-				if ( EcErrOK==rval) {
+				if ( EcErrOK==rval ) {
 					p->count++;
 				       	if (rval = (*p->fn)(p->expansion, p->fnargs))
 					return rval;
@@ -435,12 +457,12 @@ EcBoardDesc	bd=cwd->bd;
 		e = EcErrNotLeafNode;
 		goto cleanup;
 	}
-	if ( ((idx>=0) ^ (0 != EcCNodeIsArray(n))) || idx >= n->u.r.pos2  ) {
+	if ( ((idx>=0) ^ (0 != EcCNodeIsArray(n))) || idx >= n->u.r.u.a.len  ) {
 		e = EcErrInvalidIndex;
 		goto cleanup;
 	}
 	if (EcCNodeIsArray(n)) {
-		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.pos2);
+		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.u.a.len);
 		if (e=ecGetValue(bd, node, arr))
 			goto cleanup;
 		*valp = arr[idx];
@@ -481,7 +503,7 @@ EcErrStat	rval;
 EcErrStat
 ecPut(EcKey k, va_list ap)
 {
-Val_t		val=va_arg(ap,Val_t), rdback;
+Val_t		val=va_arg(ap,Val_t), rdback, oval;
 EcNode		node;
 EcCNode		n;
 EcErrStat	e=EcErrOK;
@@ -490,6 +512,7 @@ char		buf[100],*chpt;
 Val_t		*arr=0;
 EcBoardDesc	bd=cwd->bd;
 
+	oval = val;
 	strcpy(buf,k);
 	chpt=buf;
 	if ((idx=getArrayIndex(&chpt))>=0) {
@@ -504,18 +527,18 @@ EcBoardDesc	bd=cwd->bd;
 		e = EcErrNotLeafNode;
 		goto cleanup;
 	}
-	if ( ((idx>=0) ^ (0 != EcCNodeIsArray(n))) || idx >= n->u.r.pos2  ) {
+	if ( ((idx>=0) ^ (0 != EcCNodeIsArray(n))) || idx >= n->u.r.u.a.len  ) {
 		e = EcErrInvalidIndex;
 		goto cleanup;
 	}
 	if (EcCNodeIsArray(n)) {
-		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.pos2);
+		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.u.a.len);
 		if (e=ecGetValue(bd,node, arr))
 			goto cleanup;
 		arr[idx]=val;
-		val = (Val_t)arr;
+		oval = (Val_t)arr;
 	}
-	e = ecPutValue(bd, node, val);
+	e = ecPutValue(bd, node, oval);
 
 	if (!e && ! (e=ecGet(k, &rdback, 0))) {
 		if (rdback != val) {

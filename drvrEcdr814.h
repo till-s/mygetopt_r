@@ -41,7 +41,7 @@ typedef char		*EcKey; /* string keys */
 /* number of RCF coefficients used (so that the real
  * value of 256 may be reduced for testing)
  */
-#define	ECDR814_NUM_RCF_COEFFS	4 /* testing */
+#define	ECDR814_NUM_RCF_COEFFS	256
 
 /* CNode types */
 typedef enum {
@@ -52,7 +52,6 @@ typedef enum {
 	EcRdBckReg,
 	EcAD6620Reg,
 	EcAD6620MCR,
-	EcAD6620RCF
 } EcCNodeType;
 
 typedef enum {
@@ -61,7 +60,7 @@ typedef enum {
 	EcFlgNoInit	= (1<<9),	/* do not initialize */
 	EcFlgAD6620RStatic = (1<<10),	/* may only read if in reset state */
 	EcFlgAD6620RWStatic = (1<<11),	/* may only write if in reset state */
-	EcFlgArray	= (1<<12)	/* is an array pos1..pos2 */
+	EcFlgArray	= (1<<12)	/* is an array */
 } EcRegFlags;
 
 /* struct describing a node
@@ -84,8 +83,15 @@ typedef struct EcCNodeRec_ {
 			struct EcCNodeDirRec_	*n;
 		} d;					/* if an EcDir */
 		struct {
-			unsigned char		pos1;
-			unsigned char		pos2;
+			union {
+				struct {
+					unsigned char		pos1;
+					unsigned char		pos2;
+				} s; /* 'scalar register ' */
+				struct {
+					unsigned short len;	/* 'array' register of  length 'len' */
+				} a;
+			} u;
 			EcRegFlags 		flags : 16;
 			unsigned long		inival;
 			long   			min,max,adj;

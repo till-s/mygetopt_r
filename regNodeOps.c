@@ -11,6 +11,11 @@
 #include <assert.h>
 #include<stdio.h>
 
+static EcErrStat
+getCoeffs(EcBoardDesc bd, EcNode node, Val_t *pv);
+
+static EcErrStat
+putCoeffs(EcBoardDesc bd, EcNode node, Val_t pv);
 
 /* generic register get and put operations.
  * these perform access validation, range checks
@@ -23,6 +28,9 @@ get(EcBoardDesc bd, EcNode node, Val_t *pv)
 EcCNode		n=node->cnode;
 EcErrStat 	rval;
 register 	Val_t val;
+
+	if (EcCNodeIsArray(n))
+		return getCoeffs(bd, node, pv);
 
 	rval=ecGetRawValue(bd,node,pv);
 	val = (*pv & ECREGMASK(n))>>ECREGPOS(n);
@@ -58,6 +66,9 @@ EcCNode		n=node->cnode;
 	if (n->u.r.flags & EcFlgReadOnly)
 		return EcErrReadOnly;
 
+	if (EcCNodeIsArray(n))
+		return putCoeffs(bd, node, val);
+
 	if (n->u.r.flags & EcFlgMenuMask) {
 		EcMenu		m=ecMenu(n->u.r.flags);
 		if (val < 0 || val>m->nels)
@@ -91,18 +102,20 @@ EcCNode		n=node->cnode;
  */
 
 static EcErrStat
-getRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
+getRaw(IOPtr *addr, EcNode node, Val_t *rp)
 {
-volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
+volatile Val_t *vp = (Val_t *)*addr;
 	*rp = RDBE(vp);
+	*addr = (IOPtr) (++vp);
 	return EcErrOK;
 }
 
 static EcErrStat
-putRaw(EcBoardDesc bd, EcNode node, Val_t val)
+putRaw(IOPtr *addr, EcNode node, Val_t val)
 {
-volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
+volatile Val_t *vp = (Val_t *)*addr;
 	WRBE(val,vp);
+	*addr = (IOPtr) (++vp);
 	return EcErrOK;
 }
 
@@ -122,44 +135,26 @@ volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
  *
  */
 static inline int
-ad6620IsReset(EcBoardDesc bd, EcNode n)
+ad6620IsReset(IOPtr b, EcNode n)
 {
-IOPtr b=bd->base+n->u.offset;
 int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b) + AD6620_MCR_OFFSET);
 	EIEIO;
 	return rval;
 }
 
-static EcErrStat
-adGet(EcBoardDesc bd, EcNode node, Val_t *pv)
-{
-EcCNode n = node->cnode;
-	if ( (n->u.r.flags & EcFlgAD6620RStatic) && ! ad6620IsReset(bd,node)) {
-		/* some AD6620 registers may only be read while it is in reset state */
-		return EcErrAD6620NotReset;
-	}
-	/* should vector through 'superclass' but this is faster */
-	return get(bd,node,pv);
-}
-
-
-static EcErrStat
-adPut(EcBoardDesc bd, EcNode node, Val_t val)
-{
-EcCNode n = node->cnode;
-	if ((n->u.r.flags & EcFlgAD6620RWStatic) && ! ad6620IsReset(bd,node)) {
-		return EcErrAD6620NotReset;
-	}
-	/* should vector through 'superclass' but this is faster */
-	return put(bd,node,val);
-}
 
 /* raw access to AD6620 registers */
 
 static EcErrStat
-adGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
+adGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
 {
-volatile Val_t *vp = (Val_t *)(bd->base+node->u.offset);
+volatile Val_t *vp = (Val_t *)*addr;
+
+	if ( (node->cnode->u.r.flags & EcFlgAD6620RStatic) &&
+	     ! ad6620IsReset(*addr,node)) {
+		/* some AD6620 registers may only be read while it is in reset state */
+		return EcErrAD6620NotReset;
+	}
 
 #if 0 /* doing this in 'get' now */
 	/* filter coefficients must not be dynamically read
@@ -183,14 +178,20 @@ volatile Val_t *vp = (Val_t *)(bd->base+node->u.offset);
 #endif
 	/* be careful that the compiler doesn't generate an unaligned access */
 	*rp = (RDBE(vp) & 0xffff) | (((RDBE(vp+1)) & 0xffff)<<16) ;
+	/* increment address pointer */
+	*addr = (IOPtr)(vp+2);
 	return EcErrOK;
 }
 
 static EcErrStat
-adPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
+adPutRaw(IOPtr *addr, EcNode node, Val_t val)
 {
-volatile Val_t	*vp = (Val_t *)(bd->base+node->u.offset);
+volatile Val_t	*vp = (Val_t *)*addr;
 
+	if ((node->cnode->u.r.flags & EcFlgAD6620RWStatic) &&
+	     ! ad6620IsReset(*addr,node)) {
+		return EcErrAD6620NotReset;
+	}
 #if 0        /* this is now done by the higher level routines */
 	/* allow write attempt to "static" 
 	 * registers only if the receiver is in RESET
@@ -246,12 +247,14 @@ volatile Val_t	*vp = (Val_t *)(bd->base+node->u.offset);
 	EIEIO; /* just in case they read it back again: enforce
 	        * completion of write before load
 	        */
+	/* increment address pointer */
+	*addr = (IOPtr)(vp+2);
 	return EcErrOK;
 }
 
 
 static EcErrStat
-rdbckModePutRaw(EcBoardDesc bd, EcNode node, Val_t val)
+rdbckModePutRaw(IOPtr *addr, EcNode node, Val_t val)
 {
 #if 0
 /* TODO when writing the readback mode, we also want to check the fifo settings
@@ -350,7 +353,7 @@ Val_t		v;
 #endif
 		
 		/* eventually write the board configuration register */
-		return putRaw(bd,node,val);
+		return putRaw(addr,node,val);
 }
 
 #if 0
@@ -397,9 +400,9 @@ EcFKey		k[2];
 #define FIFOCTL_OFF_MSK	(3<<2)
 
 static EcErrStat
-fifoGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
+fifoGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
 {
-volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
+volatile Val_t *vp = (Val_t *)*addr;
 
 Val_t	fifoctl = RDBE(vp);
 	if (FIFOCTL_USE_OFF & fifoctl) {
@@ -413,14 +416,15 @@ Val_t	fifoctl = RDBE(vp);
 			default: *rp=0xdeadbeef; break; /* should never happen */
 		}
 	}
+	*addr = (IOPtr)(++vp);
 	return EcErrOK;
 }
 
 
 static EcErrStat
-fifoPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
+fifoPutRaw(IOPtr *addr, EcNode node, Val_t val)
 {
-volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
+volatile Val_t *vp = (Val_t *)*addr;
 
 Val_t	fifoctl = RDBE(vp);
 	fifoctl &= ~(FIFOCTL_USE_OFF | FIFOCTL_OFF_MSK);
@@ -435,6 +439,7 @@ Val_t	fifoctl = RDBE(vp);
 		}
 	fifoctl |= FIFOCTL_WRI_OFF;
 	WRBE(fifoctl,vp);
+	*addr = (IOPtr)(++vp);
 	return EcErrOK;
 }
 
@@ -442,9 +447,9 @@ Val_t	fifoctl = RDBE(vp);
 #define BURST_COUNT_MSB	1
 
 static EcErrStat
-brstCntGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
+brstCntGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
 {
-IOPtr		b=bd->base+node->u.offset;
+IOPtr		b=*addr;
 volatile Val_t	*vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 
 	/* get LSB */
@@ -456,14 +461,15 @@ volatile Val_t	*vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 		*rp|=(1<<16);
 	else 
 		*rp&=~(1<<16);
+	*addr = 0; /* autoincrement doesnt make sense here */
 	return EcErrOK;
 }
 
 
 static EcErrStat
-brstCntPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
+brstCntPutRaw(IOPtr *addr, EcNode node, Val_t val)
 {
-IOPtr		b=bd->base+node->u.offset;
+IOPtr		b=*addr;
 volatile Val_t	*vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 Val_t		msb;
 
@@ -477,6 +483,7 @@ Val_t		msb;
 	else 
 		msb &= ~BURST_COUNT_MSB;
 	WRBE(msb,vp);
+	*addr = 0; /* autoincrement doesnt make sense here */
 	return EcErrOK;
 }
 
@@ -526,44 +533,6 @@ EcCNode n=node->cnode;
 	}
 }
 
-static EcErrStat
-getCoeffs(EcBoardDesc bd, EcNode node, Val_t *v)
-{
-EcCNode		n=node->cnode;
-EcNodeRec	index = *node;
-unsigned long	*d = (unsigned long *) v;
-int		i;
-EcErrStat	e;
-	/* use a dummy node to pass an increasing index to adGetRaw
- 	 * the destination address must be stepped in 8-byte intervals.
- 	 */
-	for (i=n->u.r.pos1; i < n->u.r.pos2; i++,d++,index.u.offset+=8)
-		if (e=adGetRaw(bd,&index,(Val_t*)d))
-			return e;
-	return EcErrOK;
-}
-
-static EcErrStat
-putCoeffs(EcBoardDesc bd, EcNode node, Val_t v)
-{
-EcCNode		n=node->cnode;
-EcNodeRec	index = *node;
-unsigned long	*s = (unsigned long *) v;
-int		i;
-EcErrStat	e;
-	if ( ! ad6620IsReset(bd,node)) {
-		/* coefficients may only be written while in reset state */
-		return EcErrAD6620NotReset;
-	}
-	/* use a dummy node to pass an increasing index to adGetRaw
- 	 * the destination address must be stepped in 8-byte intervals.
- 	 */
-	for (i=n->u.r.pos1; i < n->u.r.pos2; i++,s++,index.u.offset+=8)
-		if (e=adPutRaw(bd, &index, *(Val_t*)s))
-			return e;
-return EcErrOK;
-}
-
 EcCNodeOpsRec	ecDefaultNodeOps = {
 	0, /* super */
 	0,
@@ -585,19 +554,10 @@ EcCNodeOpsRec ecdr814RegNodeOps = {
 EcCNodeOpsRec ecdr814AD6620RegNodeOps = {
 	&ecdr814RegNodeOps,
 	0,
-	adGet,
+	0,
 	adGetRaw,
-	adPut,
+	0,
 	adPutRaw
-};
-
-EcCNodeOpsRec ecdr814AD6620RCFNodeOps = {
-	&ecdr814AD6620RegNodeOps,
-	0,
-	getCoeffs,
-	0,
-	putCoeffs,
-	0
 };
 
 EcCNodeOpsRec ecdr814AD6620MCRNodeOps = {
@@ -639,6 +599,38 @@ EcCNodeOpsRec ecdr814RdBckRegNodeOps = {
 
 static EcCNodeOps nodeOps[10]={&ecDefaultNodeOps,};
 
+static EcErrStat
+getCoeffs(EcBoardDesc bd, EcNode node, Val_t *v)
+{
+EcCNode		n=node->cnode;
+unsigned long	*d = (unsigned long *) v;
+int		i;
+IOPtr		addr = bd->base + node->u.offset;
+EcErrStat	e;
+EcCNodeOps	ops = nodeOps[n->t];
+	for (i=0; i < n->u.r.u.a.len; i++,d++)
+		if (e=ops->getRaw(&addr,node,(Val_t*)d))
+			return e;
+	return EcErrOK;
+}
+
+static EcErrStat
+putCoeffs(EcBoardDesc bd, EcNode node, Val_t v)
+{
+EcCNode		n=node->cnode;
+unsigned long	*s = (unsigned long *) v;
+int		i;
+IOPtr		addr = bd->base + node->u.offset;
+EcErrStat	e;
+EcCNodeOps	ops = nodeOps[n->t];
+
+	for (i=0; i < n->u.r.u.a.len; i++,s++)
+		if (e=ops->putRaw(&addr, node, *(Val_t*)s))
+			return e;
+return EcErrOK;
+}
+
+
 /* public routines to access leaf nodes */
 
 EcErrStat
@@ -656,9 +648,10 @@ ecGetRawValue(EcBoardDesc bd, EcNode node, Val_t *vp)
 {
 EcCNodeOps	ops;
 EcCNode		n=node->cnode;
+IOPtr		addr = bd->base + node->u.offset;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->getRaw);
-	return ops->getRaw(bd,node,vp);
+	return ops->getRaw(&addr,node,vp);
 }
 
 EcErrStat
@@ -676,9 +669,10 @@ ecPutRawValue(EcBoardDesc bd, EcNode node, Val_t val)
 {
 EcCNodeOps 	ops;
 EcCNode		n=node->cnode;
+IOPtr		addr = bd->base + node->u.offset;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->putRaw);
-	return ops->putRaw(bd,node,val);
+	return ops->putRaw(&addr,node,val);
 }
 
 EcErrStat
@@ -733,5 +727,4 @@ initRegNodeOps(void)
 	addNodeOps(&ecdr814BrstCntRegNodeOps, EcBrstCntReg);
 	addNodeOps(&ecdr814FifoRegNodeOps, EcFifoReg);
 	addNodeOps(&ecdr814RdBckRegNodeOps, EcRdBckReg);
-	addNodeOps(&ecdr814AD6620RCFNodeOps, EcAD6620RCF);
 }

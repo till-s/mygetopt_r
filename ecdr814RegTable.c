@@ -31,14 +31,16 @@
  *  .../01/0A.syncEna
  */
 
-#define REGUNLMT( pos1, pos2, flags, inival, min, max, adj) { r: (pos1), (pos2), (flags), (inival), (min), (max), (adj) }
+#define REGUNLMT( pos1, pos2, flags, inival, min, max, adj) { r: { u: { s: { (pos1), (pos2) } } , (flags), (inival), (min), (max), (adj)} }
 #define REGUNION( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 0, 0 )
 #define REGUNBIT( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 1, 0 )
+#define REGARRAY( len, flags, inival, min, max, adj ) { r: { u: { a: { (len) } } , ((flags) | EcFlgArr), (inival), (min), (max), (adj)} }
+#define REGARRNL( len, flags, inival ) { r: { u: { a: { (len) } } , ((flags) | EcFlgArray), (inival), 0, 0, 0 } }
 
 static EcCNodeRec ad6620RawRegDefs[] = {
 	/* name,	node type,	offset,		bitmask	 	flags	initialization	min value, max value, value offset */
 	/* 						start,end		value						   */
-{	"rcfCoeffs",	EcAD6620RCF,	0x0000, REGUNION( 0,  NUM_C,    AR|RWST|NI,0)           },
+{	"rcfCoeffs",	EcAD6620Reg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
 {	"mcr",		EcAD6620MCR,	0x1800,	REGUNION( 0, 32, 	0,	1)		},	/* leave in reset */
 {	"ncoCtl",	EcAD6620Reg,	0x1808,	REGUNION( 0, 32, 	RWST,	0)		},
 {	"ncoSyncMsk",	EcAD6620Reg,	0x1810,	REGUNION( 0, 32, 	0,	0)		},
@@ -58,7 +60,7 @@ static EcCNodeRec ad6620RawRegDefs[] = {
 static EcCNodeRec ad6620RegDefs[] = {
 	/* name,	node type,	offset,		bitmask	 	flags	initialization	*/
 	/* 						start,end		value		*/
-{	"rcfCoeffs",	EcAD6620RCF,	0x0000, REGUNION( 0, NUM_C,     AR|RWST|NI,0)           },
+{	"rcfCoeffs",	EcAD6620Reg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
 {	"state",	EcAD6620MCR,	0x1800,	REGUNBIT( 0, 1,		Mro,	1)		},	/* init: leave in reset */
 {	"realCmplx",	EcAD6620Reg,	0x1800,	REGUNION( 1, 3,		RWST|Mrc,2)		},	/* treat bits other than reset as ordinary RWST regs */
 {	"syncMaster",	EcAD6620Reg,	0x1800,	REGUNLMT( 3, 8,		RWST,	0,		0,	1,	0)},
