@@ -5,6 +5,8 @@
 #include "drvrEcdr814.h"
 #include "ecErrCodes.h"
 
+#include <basicIoOps.h>
+
 /*
  * Register Bit definitions.
  *
@@ -86,6 +88,7 @@ ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n);
  */
 #include <ctype.h>
 
+#if 0
 #if BYTE_ORDER == BIG_ENDIAN
 #define RDBE(addr) (*((volatile Val_t *)(addr)))
 #define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
@@ -96,6 +99,10 @@ ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n);
 #else
 #error "unable to determine endianness of your machine from system headers"
 #endif
+#endif
+
+#define RDBE(addr)		in_be32((volatile uint32_t *)(addr))
+#define WRBE(val,addr)	out_be32((volatile uint32_t *)(addr),(uint32_t)(val))
 
 #ifdef __cplusplus
 };

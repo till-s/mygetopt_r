@@ -188,8 +188,11 @@ ecStartDMA(EcBoardDesc brd, EcDMADesc d)
 	EcDMARegs r = (EcDMARegs) (brd->base + CY961_OFFSET);
 
 	/* get the semaphore; remember that the flags are "active low" */
-	if ( ! (EC_CY961_SEMA_BUSY & r->sema) )
+	if ( ! (EC_CY961_SEMA_BUSY & RDBE(&r->sema)) )
 		return EcErrDMABusy;
+
+	EIEIO;
+
 	/* initialize the dma registers;
 	 * the descriptor already holds big endian values...
 	 */
@@ -201,9 +204,9 @@ ecStartDMA(EcBoardDesc brd, EcDMADesc d)
 	r->mcsr = d->mcsr;
 
 	/* verify the settings */
-	if (  EC_CY961_SEMA_BUSY != ((~(r->sema)) & EC_CY961_SEMA_MASK)) {
+	if (  EC_CY961_SEMA_BUSY != ((~RDBE(&r->sema)) & EC_CY961_SEMA_MASK)) {
 		/* release semaphore and return error */
-		r->sema = EC_CY961_SEMA_BUSY; /* flags are "active low" */
+		WRBE(EC_CY961_SEMA_BUSY, &r->sema); /* flags are "active low" */
 		return EcErrDMASetup;
 	}
 	/* seems ok, issue GO writing the board's local address */
@@ -229,7 +232,7 @@ unsigned long
 ecGetCYSemaStat( EcBoardDesc bd)
 {
 	EcDMARegs r = (EcDMARegs) (bd->base + CY961_OFFSET);
-	return (~(r->sema)) & 0xff;
+	return (~RDBE(&r->sema)) & 0xff;
 }
 
 /* clear the semaphore if the present status indicates
@@ -253,7 +256,7 @@ unsigned long
 ecGetCYVector(EcBoardDesc bd)
 {
 	EcDMARegs r = (EcDMARegs) (bd->base + CY961_OFFSET);
-	return r->mcsr & 0xff;
+	return RDBE(&r->mcsr) & 0xff;
 }
 
 #ifdef ECDR_OBSOLETE
