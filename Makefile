@@ -61,20 +61,20 @@ include $(TOP)/configure/RULES
 
 inc: ../$(GENINC) ../$(GENINC)/menuDefs.h ../$(GENINC)/fastKeyDefs.h
 
-../$(GENINC)/menuDefs.h ../O.Common/ecdr814Menus.dbd: ../O.$(HOST_ARCH)/genMenuHdr ../bitMenu.c
+../$(GENINC)/menuDefs.h ../O.Common/ecdr814Menus.dbd: ../O.$(EPICS_HOST_ARCH)/genMenuHdr ../bitMenu.c
 	echo '#ifndef BIT_MENU_HEADER_DEFS_H' > $@
 	echo '#define BIT_MENU_HEADER_DEFS_H' >> $@
 	echo '/* DONT EDIT THIS FILE, IT WAS AUTOMATICALLY GENERATED */' >>$@
 	if  $< ../O.Common/ecdr814Menus.dbd >> $@ && echo '#endif' >>$@  ; then true ; else $(RM) $@; fi
 
-../$(GENINC)/fastKeyDefs.h:../O.$(HOST_ARCH)/genHeaders 
+../$(GENINC)/fastKeyDefs.h:../O.$(EPICS_HOST_ARCH)/genHeaders 
 	if  $< -k > $@ ; then true ; else $(RM) $@; fi
 
-../O.$(HOST_ARCH)/genMenuHdr:
-	$(MAKE) -C ../O.$(HOST_ARCH)/ genMenuHdr
+../O.$(EPICS_HOST_ARCH)/genMenuHdr:
+	$(MAKE) -C ../O.$(EPICS_HOST_ARCH)/ genMenuHdr
 
-../O.$(HOST_ARCH)/genHeaders:
-	$(MAKE) -C ../O.$(HOST_ARCH)/ genHeaders
+../O.$(EPICS_HOST_ARCH)/genHeaders:
+	$(MAKE) -C ../O.$(EPICS_HOST_ARCH)/ genHeaders
 
 clean::
 	$(RMDIR) $(GENINC)
