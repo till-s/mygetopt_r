@@ -88,7 +88,7 @@ typedef struct EcCNodeRec_ {
 			unsigned char		pos2;
 			EcRegFlags 		flags : 16;
 			unsigned long		inival;
-			unsigned long   	min,max,adj;
+			long   			min,max,adj;
 		} r;					/* if a Reg or AD6620Reg */
 	} u;
 } EcCNodeRec, *EcCNode;
