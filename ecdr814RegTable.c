@@ -77,7 +77,7 @@ static EcCNodeRec ad6620RegDefs[] = {
 {	"cic5Scale",	EcAD6620Reg,	0x1838,	REGUNLMT( 0, 5,		0,	0,		0,	20,	0)},
 {	"cic5Decm",	EcAD6620Reg,	0x1840,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},
 {	"rcfScale",	EcAD6620Reg,	0x1848,	REGUNLMT( 0, 8,		0,	1,		1,	8,	-1)},
-{	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},
+{	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},
 {	"rcf1stTap",	EcAD6620Reg,	0x1858,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
 {	"rcfNTaps",	EcAD6620Reg,	0x1860,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},	/* TODO:  wraparound? */
 };
