@@ -23,6 +23,10 @@ typedef enum {
 	/* if adding error codes, ecStrError must be updated */
 } EcErrStat;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* convert error code to string
  * NOTE: return value points to a
  * static area which must not be modified 
@@ -33,5 +37,9 @@ ecStrError(EcErrStat e);
 /* how to handle warnings (for now, print to stderr) */
 void
 ecWarning(EcErrStat, char *message, ...);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif

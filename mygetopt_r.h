@@ -14,6 +14,9 @@ typedef struct MyGetOptCtxtRec_ {
 	char	*chpt;
 } MyGetOptCtxtRec, *MyGetOptCtxt;
 
+#ifdef __cplusplus
+extern "C" 
+#endif
 int
 mygetopt_r(int argc, char **argv, char *optstr, MyGetOptCtxt ctx);
 

@@ -152,7 +152,7 @@ int	pad=0;
 }
 
 /* search for the last occurrence of needle (n..e) in haystack (h) */
-static inline char *
+static __inline__ char *
 my_strstrn(char *h, char *n, char *e)
 {
 char *hh,*nn;
@@ -536,8 +536,13 @@ int		flags=va_arg(ap,int);
 EcNode	   	node=cwd->n;
 EcCNode		n;
 EcBoardDesc	bd=cwd->bd;
-LsOptsRec	o = { f: f, flags: flags, pathRelative: cwd->n };
+LsOptsRec	o;
 int		i;
+
+	memset(&o, 0, sizeof(o));
+	o.f=f;
+	o.flags=flags;
+	o.pathRelative=cwd->n;
 
 	if (!f) f=stderr;
 
@@ -722,7 +727,7 @@ char args[MAXARGS][MAXARGCHARS];
 			unsigned long flags=0;
 			int mch;
 			MyGetOptCtxtRec oc={0};
-			while ((mch=mygetopt_r(ac,argv,"avmk",&oc)>=0) {
+			while ((mch=mygetopt_r(ac,argv,"avmk",&oc)>=0)) {
 				switch(mch) {
 					case 'v': flags|=DIROPS_LS_VERBOSE; break;
 					case 'a': flags|=DIROPS_LS_RECURSE; break;
@@ -742,7 +747,7 @@ char args[MAXARGS][MAXARGCHARS];
 		{
 			int mch;
 			MyGetOptCtxtRec oc={0};
-			while ((mch=mygetopt_r(ac,argv,"avk",&oc)) {
+			while ((mch=mygetopt_r(ac,argv,"avk",&oc))) {
 				int i;
 				fprintf(ferr,"found '%c', optind is %i, argv now:\n",
 						mch, oc.optind);

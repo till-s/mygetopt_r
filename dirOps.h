@@ -7,6 +7,10 @@
 
 #include "drvrEcdr814.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* routines for interactive operation */
 
 /* print current path */
@@ -30,5 +34,9 @@ ecCd(EcKey k, FILE *f);
  */
 EcErrStat
 ecLs(EcKey k, va_list ap);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif

@@ -24,6 +24,10 @@ typedef struct EcCNodeOpsRec_ {
 	EcErrStat	(*putRaw)(IOPtr *addr, EcNode n, Val_t v);
 } EcCNodeOpsRec, *EcCNodeOps;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern EcCNodeOpsRec ecdr814RegNodeOps;
 extern EcCNodeOpsRec ecdr814AD6620RegNodeOps;
 
@@ -34,5 +38,10 @@ extern EcCNodeOpsRec ecDefaultNodeOps;
 
 extern void
 initRegNodeOps(void);
+
+#ifdef __cplusplus
+};
+#endif
+
 
 #endif

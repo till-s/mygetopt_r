@@ -4,6 +4,10 @@
 
 #include "drvrEcdr814.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct EcMenuRec_ *EcMenu;
 
 typedef struct EcMenuItemRec_ {
@@ -24,10 +28,14 @@ extern EcMenu drvrEcdr814Menus[];
 int
 ecFindMenuIndex(char *name);
 
-static inline
+static __inline__
 EcMenu ecMenu(int index)
 {
 return	drvrEcdr814Menus[index & EcFlgMenuMask];
 }
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif

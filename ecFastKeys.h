@@ -11,6 +11,10 @@
 #include "fastKeyDefs.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* macros to build fastkey paths (for hardcoding) */
 #define FASTKEY_PREPEND( prevkey, key) (((key)<<FKEY_LEN) | prevkey)
 #define BUILD_FKEY1(a) 		(a)
@@ -31,8 +35,7 @@ ecBFk(EcFKey first, ...);
 #define EMPTY_FKEY		((EcFKey)0)
 
 /* prepend an fkey to a path of fkeys */
-#ifndef __STRICT_ANSI__
-extern inline EcFKey 
+extern __inline__ EcFKey 
 ecAddFKeyToPath(EcFKey path, EcFKey fkey)
 {
 register EcFKey mask;
@@ -40,7 +43,7 @@ for (mask = (1<<FKEY_LEN)-1; mask & path; mask <<= FKEY_LEN, fkey<<=FKEY_LEN);
 return path | fkey;
 }
 
-extern inline EcFKey
+extern __inline__ EcFKey
 ecStripFKeyFromPath(EcFKey path)
 {
 register  EcFKey mask;
@@ -51,7 +54,7 @@ return path & (mask>>FKEY_LEN);
 /* convert a NodeList to a fastkey describing
  * the same path
  */
-static inline EcFKey
+static __inline__ EcFKey
 ecNode2FKey(EcNode n)
 {
 EcFKey rval = EMPTY_FKEY;
@@ -61,6 +64,9 @@ while (n->parent) {
 }
 return rval;
 }
+
+#ifdef __cplusplus
+};
 #endif
 
 #endif

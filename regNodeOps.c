@@ -134,7 +134,7 @@ volatile Val_t *vp = (Val_t *)*addr;
  *       }
  *
  */
-static inline int
+static __inline__ int
 ad6620IsReset(IOPtr b, EcNode n)
 {
 int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b) + AD6620_MCR_OFFSET);

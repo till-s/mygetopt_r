@@ -134,6 +134,10 @@ typedef struct EcNodeRec_ {
 /* Board descriptor type */
 typedef struct EcBoardDescRec_ *EcBoardDesc;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* access of leaf nodes */
 
 EcErrStat
@@ -411,4 +415,9 @@ void
 ecCNodeWalk(EcCNode n, EcCNodeWalkFn fn, IOPtr p, EcCNodeList l, void *fnarg);
 
 #endif
+
+#ifdef __cplusplus
+};
+#endif
+
 #endif

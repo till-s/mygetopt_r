@@ -5,7 +5,7 @@
 
 #include "drvrEcdr814.h"
 
-static inline EcCNode
+static __inline__ EcCNode
 lookupEcFKey(EcCNode n, EcFKey *k)
 {
 int i= (((*k)&((1<<FKEY_LEN)-1))-1);
@@ -20,7 +20,7 @@ int i= (((*k)&((1<<FKEY_LEN)-1))-1);
 	return &n->u.d.n->nodes[i];
 }
 
-static inline EcNode
+static __inline__ EcNode
 ecFKeyLookup(EcNode n, EcFKey *k)
 {
 int i= (((*k)&((1<<FKEY_LEN)-1))-1);
@@ -42,7 +42,7 @@ int i= (((*k)&((1<<FKEY_LEN)-1))-1);
 	return &n->u.entries[i];
 }
 
-static inline EcCNode
+static __inline__ EcCNode
 lookupEcKey(EcCNode n, EcKey *key)
 {
 int i,l;
@@ -67,7 +67,7 @@ EcKey k=*key;
 return 0;
 }
 
-static inline EcNode
+static __inline__ EcNode
 ecKeyLookup(EcNode n, EcKey *key)
 {
 int i,l;

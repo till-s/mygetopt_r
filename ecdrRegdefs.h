@@ -64,6 +64,10 @@
 #define BITS_AD6620_MCR_MASK	((1<<8)-1)	/* bits that are actually used in this register */
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern EcErrStat
 ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n);
 
@@ -92,5 +96,10 @@ ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n);
 #else
 #error "unable to determine endianness of your machine from system headers"
 #endif
+
+#ifdef __cplusplus
+};
+#endif
+
 
 #endif
