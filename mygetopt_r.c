@@ -59,7 +59,6 @@ char			*optfound;
 	rval = (optfound=strchr(optstr,*ctx->chpt)) ? *ctx->chpt : '?';
 	if (!*(++ctx->chpt)) ctx->chpt=0;
 	if (optfound && ':'==*(optfound+1)) {
-		char *tmp;
 		/* has an argument, store in optarg and skip */
 		ctx->optarg=argv[ctx->optind++];
 	}
