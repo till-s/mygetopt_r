@@ -68,7 +68,6 @@ initEcNodes(EcNode thisNode, unsigned long offset, EcNode *pfree)
 EcNode	n;
 EcNode	end;
 EcCNode	cn;
-int	i;
 
 	/* 'thisNode' is a directory; create nodes
 	 * for all of its entries and initialize them
