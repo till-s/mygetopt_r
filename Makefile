@@ -37,7 +37,7 @@ DBD += ecdr814Menus.dbd
 #=============================
 
 #PROD_RTEMS = ecdr814App
-LIBRARY_vxWorks += drvEcdr814
+#LIBRARY_vxWorks += drvEcdr814
 LIBRARY_RTEMS   += drvEcdr814
 LIBRARY_Linux   += drvEcdr814
 

@@ -124,6 +124,18 @@ volatile Val_t *vp = (Val_t *)*addr;
  * get/put routines.
  */
 
+static __inline__ Val_t
+adGetReg(volatile Val_t *p)
+{
+/* be careful that the compiler doesn't generate an unaligned access */
+register Val_t r = RDBE(p) & 0xffff;
+	EIEIO;
+	r |= ( (RDBE(p+1) << 16));
+	EIEIO;
+	return r;
+}
+
+
 /* we should probably use assert( b & ECDR_AD6620_ALIGNMENT )
  * NOTE: this routine is a hack because it accesses the MCR
  *       directly. A cleaner implementation would be
@@ -134,12 +146,12 @@ volatile Val_t *vp = (Val_t *)*addr;
  *       }
  *
  */
+
 static __inline__ int
 ad6620IsReset(IOPtr b, EcNode n)
 {
-int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b) + AD6620_MCR_OFFSET);
-	EIEIO;
-	return rval;
+Val_t rval = adGetReg((volatile Val_t*)(AD6620BASE(b) + AD6620_MCR_OFFSET));
+	return rval & BITS_AD6620_MCR_RESET;
 }
 
 
@@ -176,8 +188,7 @@ volatile Val_t *vp = (Val_t *)*addr;
 			if (!isreset) return EcErrAD6620NotReset;
 	}
 #endif
-	/* be careful that the compiler doesn't generate an unaligned access */
-	*rp = (RDBE(vp) & 0xffff) | (((RDBE(vp+1)) & 0xffff)<<16) ;
+	*rp = adGetReg(vp);
 	/* increment address pointer */
 	*addr = (IOPtr)(vp+2);
 	return EcErrOK;

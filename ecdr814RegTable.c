@@ -54,6 +54,7 @@ static EcCNodeRec ad6620RawRegDefs[] = {
 {	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNION( 0, 32, 	RWST,	0)		},
 {	"rcf1stTap",	EcAD6620Reg,	0x1858,	REGUNION( 0, 32, 	0,	0)		},
 {	"rcfNTaps",	EcAD6620Reg,	0x1860,	REGUNION( 0, 32, 	RWST,	0)		},
+{	"reserved",	EcAD6620Reg,	0x1868,	REGUNION( 0, 32, 	RWST,	0)		}, /* MUST be initialized to 0 */
 };
 
 /* we allow writes to these registers only when "reset" is asserted */
