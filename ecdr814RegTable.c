@@ -67,7 +67,7 @@ static EcCNodeRec ad6620RegDefs[] = {
 {	"ncoBypass",	EcAD6620Reg,	0x1808,	REGUNBIT( 0, 1,		RWST,	0)		},	/* off */
 {	"phaseDith",	EcAD6620Reg,	0x1808,	REGUNBIT( 1, 2,		RWST,	0)		},	/* off */
 {	"ampDith",	EcAD6620Reg,	0x1808,	REGUNBIT( 2, 3,		RWST,	0)		},	/* off */
-{	"ncoSyncMsk",	EcAD6620Reg,	0x1810,	REGUNION( 0, 32,	0,	0)		},
+{	"ncoSyncMsk",	EcAD6620Reg,	0x1810,	REGUNION( 0, 32,	0,	0xffffffff)		},
 {	"ncoFreq",	EcAD6620Reg,	0x1818,	REGUNION( 0, 32,	0,	0)		},
 {	"ncoPhase",	EcAD6620Reg,	0x1820,	REGUNION( 0, 32,	0,	0)		},
 {	"cic2Scale",	EcAD6620Reg,	0x1828,	REGUNLMT( 0, 3,		0,	0,		0,	8,	0)},
