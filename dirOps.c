@@ -18,52 +18,7 @@
 
 #define NOT_EOS(s) (*(s) && EC_DIRSEP_CHAR != *(s) && EC_BRDSEP_CHAR != *(s) && '[' != *(s))
 
-
-/* provide getopt for vxworks */
-int myoptind=0;
-
-static int
-mygetopt(int argc, char **argv, char *optstr)
-{
-int rval;
-static char		*chpt=0;
-
-	/* leftover options from previous call ? */
-	while (!chpt) {
-		int nrot,endrot;
-
-		if (myoptind>=argc) {
-			return -1; /* no more options */
-		}
-		for (	endrot=myoptind+1;
-			endrot<argc;
-			endrot++) {
-			if ('-'==argv[endrot][0]) {
-				endrot++;
-				break;
-			}
-		}
-		nrot=endrot-myoptind;
-
-		while ('-'!=*argv[myoptind] && nrot--) {
-			char *tmp=argv[myoptind];
-			int i;
-			for (i=myoptind; i<endrot-1; i++) {
-				argv[i]=argv[i+1];
-			}
-			argv[endrot-1]=tmp;
-		}
-		if (nrot<=0) {
-			/* no more options found */
-			return -1;
-		}
-		if (!*(chpt=argv[myoptind]+1)) chpt=0; /* empty string */
-		myoptind++;
-	}
-	rval = strchr(optstr,*chpt) ? *chpt : '?';
-	if (!*(++chpt)) chpt=0;
-	return rval;
-}
+#include "mygetopt_r.h"
 
 /* tiny 'environment' */
 
@@ -766,8 +721,8 @@ char args[MAXARGS][MAXARGCHARS];
 		{
 			unsigned long flags=0;
 			int mch;
-			myoptind=1;
-			while ((mch=mygetopt(ac,argv,"avmk"))>=0) {
+			MyGetOptCtxtRec oc={0};
+			while ((mch=mygetopt_r(ac,argv,"avmk",&oc)>=0) {
 				switch(mch) {
 					case 'v': flags|=DIROPS_LS_VERBOSE; break;
 					case 'a': flags|=DIROPS_LS_RECURSE; break;
@@ -776,7 +731,7 @@ char args[MAXARGS][MAXARGCHARS];
 					default:  fprintf(ferr,"unknown option\n"); break;
 				}
 			}
-			if ((e=globbedDo(EcString2Key((myoptind < ac) ? args[myoptind] : 0), 
+			if ((e=globbedDo(EcString2Key((oc.optind < ac) ? args[oc.optind] : 0), 
 				  GLB_OPT_ALL,
 				  ecLs,
 				  fout, flags)))
@@ -786,11 +741,11 @@ char args[MAXARGS][MAXARGCHARS];
 		else if (!strcmp("tstopt",args[0]))
 		{
 			int mch;
-			myoptind=0;
-			while ((mch=mygetopt(ac,argv,"avk"))) {
+			MyGetOptCtxtRec oc={0};
+			while ((mch=mygetopt_r(ac,argv,"avk",&oc)) {
 				int i;
 				fprintf(ferr,"found '%c', optind is %i, argv now:\n",
-						mch, myoptind);
+						mch, oc.optind);
 				for (i=0; i<ac; i++) {
 					fprintf(ferr,"%s | ",argv[i]);
 				}
