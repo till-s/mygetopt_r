@@ -18,12 +18,6 @@
 
 #define NOT_EOS(s) (*(s) && EC_DIRSEP_CHAR != *(s) && EC_BRDSEP_CHAR != *(s) && '[' != *(s))
 
-#if (defined(__vxworks) || defined(DEBUG))
-
-#ifdef __vxworks
-#define optind myoptind
-#define getopt mygetopt
-#endif
 
 /* provide getopt for vxworks */
 int myoptind=0;
@@ -70,7 +64,6 @@ static char		*chpt=0;
 	if (!*(++chpt)) chpt=0;
 	return rval;
 }
-#endif
 
 /* tiny 'environment' */
 
@@ -79,7 +72,7 @@ typedef struct EcdrShEnvRec_ {
 	EcBoardDesc 	bd;
 } EcdrShEnvRec, *EcdrShEnv;
 
-static EcdrShEnvRec ecdrenvs[5] = {0};
+static EcdrShEnvRec ecdrenvs[5] = {{0}};
 
 static EcdrShEnv cwd=0;
 
@@ -100,16 +93,16 @@ typedef struct RprintInfoRec_ {
 static void
 rprint(EcNode l, FILE *f, RPrintInfo info)
 {
-int n;
+int n=0;
 	if ( l == info->clip ) return;
 
 	if (l->parent) {
 		rprint(l->parent,f,info);
-		fputc(EC_DIRSEP_CHAR,f);
-		n = fprintf(f,l->cnode->name);
+		fputc(EC_DIRSEP_CHAR,f); n++;
+		n += fprintf(f,"%s",l->cnode->name);
 	} else {
 		/* print board name */
-		n = info->bd ? fprintf(f,"%s%c",info->bd->name,EC_BRDSEP_CHAR) : 0;
+		n += info->bd ? fprintf(f,"%s%c",info->bd->name,EC_BRDSEP_CHAR) : 0;
 	}
 	info->pos+=n;
 }
@@ -134,10 +127,11 @@ int	pad=0;
 
 		rprint(l->parent,f,&pi);
 		fputc(EC_DIRSEP_CHAR,f);
+		pad++;
 	
-		pad = pi.pos;
+		pad += pi.pos;
 	}
-	pad+=fprintf(f,n->name);
+	pad+=fprintf(f,"%s",n->name);
 
 	fk=ecNode2FKey(l);
 
@@ -154,7 +148,7 @@ int	pad=0;
 		while (pad++<35) fputc(' ',f);
 		if ( DIROPS_LS_VERBOSE & o->flags ) {
 			Val_t v,rv,*memp=0,*pv=&v;
-			int nels=1,i;
+			int nels=1;
 			EcErrStat e;
 			if ( EcCNodeIsArray(n) ) {
 				nels = n->u.r.u.a.len;
@@ -166,20 +160,24 @@ int	pad=0;
 			} else {
 				IOPtr p = bd->base + l->u.offset;
 				if (m)
-					fprintf(f," @0x%08x: %s (ini: %s, raw: 0x%08x)",
-						p,
-						m->items[v].name, m->items[n->u.r.inival].name,
-						rv );
+					fprintf(f," @0x%08lx: %s (ini: %s, raw: 0x%08lx)",
+						(unsigned long)p,
+						m->items[v].name,
+						m->items[n->u.r.inival].name,
+						(unsigned long)rv);
 				else {
 					if (nels > 1) {
-						fprintf(f,"   array %c%i%c @0x%08x\n",
-								EC_IDXO_CHAR, nels, EC_IDXC_CHAR,
-								p);
+						fprintf(f,"   array %c%i%c @0x%08lx\n",
+							EC_IDXO_CHAR, nels, EC_IDXC_CHAR,
+							(unsigned long)p);
 						while (nels--)
-							fprintf(f,"    %8i\n", *(pv++));
+							fprintf(f,"    %8li\n", *(pv++));
 					} else {
-						fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
-							p, v, n->u.r.inival, rv );
+						fprintf(f," @0x%08lx: %li (ini: %li, raw: 0x%08lx)",
+							(unsigned long)p,
+							v,
+							n->u.r.inival,
+							rv );
 					}
 				}
 			}
@@ -188,10 +186,10 @@ int	pad=0;
 	}
 	while (pad++<35) fputc(' ',f);
 	if ( DIROPS_LS_FKEYINFO & o->flags ) {
-		fprintf(f, "  [FKEY: 0x%08x]", fk);
+		fprintf(f, "  [FKEY: 0x%08lx]", (unsigned long)fk);
 	}
 	fprintf(f,"\n");
-	if ( DIROPS_LS_SHOWMENU & o->flags && m ) {
+	if ( (DIROPS_LS_SHOWMENU & o->flags) && m ) {
 		int i;
 		for (i=0; i<m->nels; i++)
 			fprintf(f, "   - %2i: %s\n",i,m->items[i].name);
@@ -309,7 +307,7 @@ EcErrStat	rval;
 					l=sprintf(append,"%s%c",
 						n->cnode->u.d.n->nodes[i].name,
 						EC_DIRSEP_CHAR);
-					if (rval=rglob(&n->u.entries[i], append+l, ptr, p))
+					if ((rval=rglob(&n->u.entries[i], append+l, ptr, p)))
 						return rval;
 				} /* else just skip it */
 			} else {
@@ -327,7 +325,7 @@ EcErrStat	rval;
 
 				if ( EcErrOK==rval ) {
 					p->count++;
-				       	if (rval = (*p->fn)(p->expansion, p->fnargs))
+				       	if ((rval = (*p->fn)(p->expansion, p->fnargs)))
 					return rval;
 				}
 			}
@@ -361,20 +359,24 @@ EcKey		ptr,a;
 		int i;
 		EcBoardDesc bd;
 		/* board specified, loop over all boards */
-		for (i=0; bd=ecGetBoardDesc(i); i++) {
+		for (i=0; (bd=ecGetBoardDesc(i)); i++) {
 			if ((ptr=globMatch(bd->name, globPat)) && EC_BRDSEP_CHAR==*ptr) {
 				ptr++;
 				a = parms.expansion;
 				a+=sprintf(a,"%s%c%c",bd->name,EC_BRDSEP_CHAR,EC_DIRSEP_CHAR);
 				if (EC_DIRSEP_CHAR == *ptr)
 					ptr++;
-				if (rval=rglob(bd->root, a, ptr, &parms))
+				if ((rval=rglob(bd->root, a, ptr, &parms)))
 					goto cleanup;
 			}
 		}
 	} else {
 		if (EC_DIRSEP_CHAR==*globPat) {
 			/* absolute */
+			if (!cwd || !cwd->bd) {
+				fprintf(stderr,"<no path, use 'ls/cd'>\n");
+				goto cleanup;
+			}
 			*(a++)='/'; *a=0;
 			rval=rglob(cwd->bd->root, a, globPat+1, &parms);
 		} else {
@@ -402,7 +404,6 @@ cleanup:
 void
 ecPwd(FILE *f)
 {
-int nchars=0;
 	if (!f) f=stderr;
 
 	if (!cwd->bd) {
@@ -463,11 +464,11 @@ EcBoardDesc	bd=cwd->bd;
 	}
 	if (EcCNodeIsArray(n)) {
 		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.u.a.len);
-		if (e=ecGetValue(bd, node, arr))
+		if ((e=ecGetValue(bd, node, arr)))
 			goto cleanup;
 		*valp = arr[idx];
 	} else {
-		if (e=ecGetValue(bd, node, valp))
+		if ((e=ecGetValue(bd, node, valp)))
 			goto cleanup;
 		if (mp) *mp = ecMenu(n->u.r.flags);
 	}
@@ -495,7 +496,7 @@ EcErrStat	rval;
 	if (m) {
 		fprintf(f,"%s\n", m->items[v].name);
 	} else {
-		fprintf(f,"%i (0x%x)\n",v,v);
+		fprintf(f,"%li (0x%lx)\n",v,v);
 	}
 	return EcErrOK;
 }
@@ -533,7 +534,7 @@ EcBoardDesc	bd=cwd->bd;
 	}
 	if (EcCNodeIsArray(n)) {
 		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.u.a.len);
-		if (e=ecGetValue(bd,node, arr))
+		if ((e=ecGetValue(bd,node, arr)))
 			goto cleanup;
 		arr[idx]=val;
 		oval = (Val_t)arr;
@@ -542,8 +543,8 @@ EcBoardDesc	bd=cwd->bd;
 
 	if (!e && ! (e=ecGet(k, &rdback, 0))) {
 		if (rdback != val) {
-			fprintf(stderr,"readback failed for %s (got %i == 0x%x)\n",
-					k, rdback);
+			fprintf(stderr,"readback failed for %s (got %li == 0x%lx)\n",
+					k, rdback, rdback);
 			e = EcError;
 		}
 	}
@@ -676,7 +677,7 @@ fprintf(f,"    <path>                       -- relative or absolute path specifi
 fprintf(f,"                                    <path> = [ [<board name>, '%c',] '%c' ] { <name>, '%c' }\n",B,D,D);
 fprintf(f,"                                    e.g.\n\n");
 
-fprintf(f,"                                      01%cclockSame,  B0%c%crdbackMode, %c01%cC0.gainEna\n\n",B,D,D,D);
+fprintf(f,"                                      01%cclockSame,  B0%c%crdbackMode, %c01%cC0.gainEna\n\n",D,B,D,D,D);
 
 fprintf(f,"    <wpath>                      -- path with 'wildcard' names (wildcard: '%c')\n",W);
 fprintf(f,"                                    e.g.\n\n");
@@ -775,10 +776,10 @@ char args[MAXARGS][MAXARGCHARS];
 					default:  fprintf(ferr,"unknown option\n"); break;
 				}
 			}
-			if (e=globbedDo(EcString2Key((myoptind < ac) ? args[myoptind] : 0), 
+			if ((e=globbedDo(EcString2Key((myoptind < ac) ? args[myoptind] : 0), 
 				  GLB_OPT_ALL,
 				  ecLs,
-				  fout, flags))
+				  fout, flags)))
 				continue;
 		}
 #ifdef DEBUG
@@ -799,22 +800,19 @@ char args[MAXARGS][MAXARGCHARS];
 		}
 #endif
 		else if (!strcmp("get",args[0])) {
-			Val_t		v;
-			EcMenu		m;
 			if (ac<2) {
 				fprintf(ferr,"key arg needed\n");
 				continue;
 			}
-			if (e=globbedDo(args[1],
+			if ((e=globbedDo(args[1],
 					GLB_OPT_LEAVES,
-					ecGetPrint,fout)) {
+					ecGetPrint,fout))) {
 				continue;
 			}
 		}
 		else if (!strcmp("put",args[0]))
 		{
 			Val_t		v;
-			EcMenu		m;
 			char		*end;
 			if (ac<3 || (v=strtoul(args[2],&end,0), !*args[2] || *end)) {
 				fprintf(ferr,"key and value args needed\n");
@@ -831,9 +829,8 @@ char args[MAXARGS][MAXARGCHARS];
 		{
 			EcNode		l=0;
 			EcFKey		fk;
-			IOPtr		b=0;
 			RPrintInfoRec	pi;
-			if (ac<2 || 1!=sscanf(argv[1],"%i",&fk)) {
+			if (ac<2 || 1!=sscanf(argv[1],"%li",&fk)) {
 				fprintf(ferr,"fastkey id arg required\n");
 				continue;
 			}
