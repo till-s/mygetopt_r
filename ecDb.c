@@ -51,6 +51,10 @@ countNodes(EcCNode l, IOPtr b, void *pcnt)
 (*(unsigned long*)pcnt)++;
 }
 
+#if 0 /* this is actually harmful (and unnecessary) the bitvalues of menues
+	   * may well lie outside of the valid index range...
+	   */
+
 /* initialize the min and max fields of menu CNodes */
 static void
 menuMinMaxInit(EcCNode l, IOPtr b, void *arg)
@@ -61,6 +65,7 @@ EcMenu m;
 	l->u.r.adj = 0;
 	l->u.r.max = m->nels-1;
 }
+#endif
 
 static void
 initEcNodes(EcNode thisNode, unsigned long offset, EcNode *pfree)
@@ -116,8 +121,10 @@ EcNode		rval, free;
 	nNodes=0;
 	ecCNodeWalk(classRootNode, countNodes, 0, &nNodes);
 
+#if 0 /* see comment below; this mustn't be done */
 	/* initialize the min/max count of menu entries */
 	ecCNodeWalk(classRootNode, menuMinMaxInit, 0, &nNodes);
+#endif
 	/* allocate space */
 	rval=free=(EcNode)malloc(sizeof(*rval) * nNodes);
 	if (!rval)

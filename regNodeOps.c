@@ -71,7 +71,7 @@ EcCNode		n=node->cnode;
 
 	if (n->u.r.flags & EcFlgMenuMask) {
 		EcMenu		m=ecMenu(n->u.r.flags);
-		if (val < 0 || val>m->nels)
+		if (val < 0 || val >= m->nels)
 			return EcErrOutOfRange;
 		val = m->items[val].bitval;
 	}
