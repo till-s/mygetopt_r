@@ -143,9 +143,13 @@ return EcErrOK;
 }
 
 EcErrStat
-ecSetupDMADesc( EcDMADesc d, void *buf, int size, EcDMAFlags flags)
+ecSetupDMADesc( EcDMADesc d, void *buf, int size, unsigned char vec, EcDMAFlags flags)
 {
-	void *vmeaddr;
+void		*vmeaddr;
+unsigned long	mcsr = ((unsigned long)vec) & 0xff;
+
+	if (mcsr & EC_CY961_MCSR_IENA)
+		return EcErrOutOfRange;
 
 	if ( EcDMA_D64 & flags ) {
 		if (size % 128) return EcErrOutOfRange;
@@ -170,9 +174,9 @@ ecSetupDMADesc( EcDMADesc d, void *buf, int size, EcDMAFlags flags)
 	WRBE( (unsigned long)vmeaddr, &d->vadr );
 
 	if (flags & EcDMA_IEN)
-		WRBE( EC_CY961_MCSR_IENA, &d->mcsr );
-	else
-		WRBE( 0, &d->mcsr );
+		mcsr|=EC_CY961_MCSR_IENA;
+
+	WRBE( mcsr, &d->mcsr );
 
 	return EcErrOK;
 }
@@ -219,3 +223,28 @@ ecGetCYSemaStat( EcBoardDesc bd)
 	EcDMARegs r = (EcDMARegs) (bd->base + CY961_OFFSET);
 	return (~(r->sema)) & 0xff;
 }
+
+/* clear the semaphore if the present status indicates
+ * that we own it (the 'sema' parameter is the value
+ * returned by a previous call to ecGetCYSemaStat()
+ */
+void
+ecClearCYSema(EcBoardDesc bd, unsigned long sema)
+{
+	EcDMARegs r;
+	/* sema is an 'active high' value, returned
+         * by a previous ecGetCYSemaStat()
+	 */
+	if (sema & EC_CY961_SEMA_BUSY) return;
+
+	r = (EcDMARegs) (bd->base + CY961_OFFSET);
+	WRBE( ((~sema) | EC_CY961_SEMA_BUSY), &r->sema); /* release the SEMA */
+}
+
+unsigned long
+ecGetCYVector(EcBoardDesc bd)
+{
+	EcDMARegs r = (EcDMARegs) (bd->base + CY961_OFFSET);
+	return r->mcsr & 0xff;
+}
+

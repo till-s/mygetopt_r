@@ -243,6 +243,8 @@ typedef unsigned long BEUlong; /* emphasize that it's big endian */
 #define EC_CY961_SEMA_VMEA	(1<<6)	/* no new VME starting address */
 #define EC_CY961_SEMA_BERR	(1<<7)	/* BERR* or LERR*              */
 
+#define EC_CY961_MCSR_IGOOD	(1<<0)	/* enable master block irq status (read) */
+
 #ifdef ECDR814_PRIVATE_IF
 
 #define VBEUlong volatile BEUlong
@@ -272,7 +274,7 @@ typedef struct EcDMARegsRec_ {
 	VBEUlong	ladr;   /* block (CY) local address and GO     */
 	VBEUlong	vadr;	/* block VME address                   */
 	VBEUlong	uadr;   /* VME A40/A64 upper address           */
-#define EC_CY961_MCSR_IENA	(1<<0)	/* enable master block VME irq */
+#define EC_CY961_MCSR_IENA	(1<<0)	/* enable master block VME irq (write) */
 	VBEUlong	mcsr;	/* master block status & irq           */
 } EcDMARegsRec, *EcDMARegs;
 
@@ -303,11 +305,17 @@ typedef enum {
 	EcDMA_IEN=(1<<1)	/* enable IRQ when done; APP MUST INSTALL HANDLER */
 } EcDMAFlags;
 
+/* NOTE: the interrupt vector is the number returned by the CY961
+ *       during a VME IACK cycle. The CY961 uses the LSB for status
+ *       information, however ('1' meaning OK, '0' indicating a termination
+ *       due to a bus error [local or VME]).
+ */
 EcErrStat
-ecSetupDMADesc( EcDMADesc  desc,   /* descriptor to be initialized */
-		void	   *buffer,/* buffer address */
-		int	   size,   /* buffer size (in bytes) */
-		EcDMAFlags flags); /* see below */
+ecSetupDMADesc( EcDMADesc	desc,   /* descriptor to be initialized */
+		void		*buffer,/* buffer address */
+		int		size,   /* buffer size (in bytes) */
+		unsigned char	vector, /* interrupt vector; LSB _must_ be 0 */
+		EcDMAFlags	flags); /* see below */
 
 
 /* start DMA on a board using buffer described
@@ -315,11 +323,6 @@ ecSetupDMADesc( EcDMADesc  desc,   /* descriptor to be initialized */
  */
 EcErrStat
 ecStartDMA( EcBoardDesc board, EcDMADesc d);
-
-/* interrupt vectors */
-#define ECDR814_INT_VEC		0xee
-#define CY7C961_GOOD_INT_VEC	0xc1
-#define CY7C961_BAD_INT_VEC	0xc0
 
 /* a fast way of reading the interrupt status register
  * without going through the database
@@ -330,8 +333,25 @@ ecGetIntStat( EcBoardDesc bd);
 /* get the sema status register of the CY961
  * NOTE: the returned value has been _inverted_, i.e.
  * the bit values are "active high"...
+ * IMPORTANT: using this call might yield the semaphore
+ * (return value & EC_CY961_SEMA_BUSY) == 0
+ * In this case, it must be cleared by calling ecClearCYSema()
  */
 unsigned long
-ecGetCYSemaStat( EcBoardDesc bd);
+ecGetCYSemaStat(EcBoardDesc bd);
 
+/* clear the semaphore if the present status indicates
+ * that we own it (the 'sema' parameter is the value
+ * returned by a previous call to ecGetCYSemaStat()
+ */
+void
+ecClearCYSema(EcBoardDesc bd, unsigned long sema);
+
+/* read the Master Status ID (interrupt vector) register.
+ * The EC_CY961_MCSR_IGOOD bit indicates if the interrupt
+ * occurred due to successful DMA completion (1) or a
+ * bus error (0).
+ */
+unsigned long
+ecGetCYVector(EcBoardDesc bd);
 #endif
