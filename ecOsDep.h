@@ -11,7 +11,10 @@
 #include <sysLib.h>
 #elif defined(__rtems__)
 #include <rtems.h>
-#elif defined(__linux)
+#elif defined(__linux) || defined(linux)
+#ifndef __linux
+#define __linux
+#endif
 #else
 #error "no OS type defined"
 #endif

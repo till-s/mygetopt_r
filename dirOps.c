@@ -733,7 +733,7 @@ char args[MAXARGS][MAXARGCHARS];
 					case 'a': flags|=DIROPS_LS_RECURSE; break;
 					case 'm': flags|=DIROPS_LS_SHOWMENU; break;
 					case 'k': flags|=DIROPS_LS_FKEYINFO; break;
-					default:  fprintf(ferr,"unknown option\n"); break;
+					default:  fprintf(ferr,"unknown option '%c'\n",mch); break;
 				}
 			}
 			if ((e=globbedDo(EcString2Key((oc.optind < ac) ? args[oc.optind] : 0), 
