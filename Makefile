@@ -1,99 +1,79 @@
-LIBSRCS = drvrEcdr814.c regNodeOps.c dirOps.c bitMenu.c ecDb.c  ecdr814Lowlevel.c ecLookup.c
-SRCS = drvrTst.c genHeaders.c $(LIBSRCS) genMenuHdr.c
+TOP=../../..
 
-OBJS = $(SRCS:%.c=%.o)
+include $(TOP)/configure/CONFIG
+#----------------------------------------
+#  ADD MACRO DEFINITIONS AFTER THIS LINE
+#=============================
 
-LIBOBJS = $(LIBSRCS:%.c=%.o)
+GENINC = geninc
 
-CC = gcc
+USR_CFLAGS +=  -fpermissive -DDIRSHELL -DDEBUG
+USR_INCLUDES += -I../$(GENINC)/
+#USR_DBDFLAGS += -I$(ECDR_HOME)
+#USR_LDFLAGS += -Wl,-M
 
-CFLAGS=-g -O2 -DDIRSHELL -DDEBUG
-LDFLAGS=-g
+INC += drvrEcdr814.h
 
-SUBDIRS = O.host O.vxppc
+PROD_HOST += genMenuHdr
+genMenuHdr_SRCS += genMenuHdr.c bitMenu.c
 
-CROSS_COMPILE = $(patsubst .%,%,$(suffix $(CURDIR)))-
-ifeq "$(CROSS_COMPILE)" "host-"
-	CROSS_COMPILE=
-endif
+PROD_HOST += genHeaders
+genHeaders_SRCS += genHeaders.c ecDb.c bitMenu.c
 
-all: subdirs rtems
+PROD_HOST += genDbd
+genDbd_SRCS += genDbd.c ecDb.c bitMenu.c
 
-rtems:
-	make -f Makefile.rtems all
 
-.PHONY: prebuild subdirs $(SUBDIRS)
-subdirs: $(SUBDIRS)
+#caExample_LIBS	+= ca
+#caExample_LIBS	+= Com
 
-.all: drvrTst drvr.o
+#=============================
 
-PREBUILD = genMenuHdrtool menuDefs.h genHeaderstool fastKeyDefs.h genDbdtool
+# xxxRecord.h will be created from xxxRecord.dbd
+#DBDINC += ecdr814Record ecdr814RXRecord ecdr814ChannelRecord ecdr814BoardRecord
+#DBD += ecdr814RecCommon.dbd ecdr814RXFields.dbd ecdr814BoardFields.dbd  ecdr814ChannelFields.dbd  
 
-prebuild: $(SUBDIRS:%=%/Makefile) $(PREBUILD)
 
-$(SUBDIRS):  prebuild
-	$(MAKE) -C $@ .all
+# <name>.dbd will be created from <name>Include.dbd
+#DBD += ecdr814.dbd
 
-$(filter %tool, $(PREBUILD)):
-	$(MAKE) -C O.host $(@:%tool=%)
+#=============================
 
-O.%: O.host
+#PROD_RTEMS = ecdr814App
+LIBRARY += drvEcdr814
 
-O.%/Makefile:
-	mkdir -p $(@:%/Makefile=%)
-	echo "include ../Makefile" > $@
+drvEcdr814_SRCS += drvrEcdr814.c regNodeOps.c dirOps.c bitMenu.c ecDb.c  ecdr814Lowlevel.c ecLookup.c mygetopt_r.c
+PROD_HOST_Linux += drvEcdr814Tst
 
-O.host/%:
-	$(MAKE) -C O.host $(@:O.host/%=%)
+drvEcdr814Tst_SRCS += drvrTst.c
+drvEcdr814Tst_LIBS += drvEcdr814
+drvEcdr814Tst_LDFLAGS += -L$(TOP)/lib/$(T_A)
 
-%.o: ../%.c
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -I.. -c -o $@ $<
+#===========================
 
-drvrTst: drvrTst.o $(LIBOBJS)
-	$(CROSS_COMPILE)$(CC) $(CFLAGS)  -o $@ $^
+include $(TOP)/configure/RULES
+#----------------------------------------
+#  ADD RULES AFTER THIS LINE
 
-drvr.o:	$(LIBOBJS)
-	$(CROSS_COMPILE)$(LD) $(LDFLAGS) -r -o $@ $^
+../$(GENINC):
+	mkdir $@
 
-fastKeyDefs.h: O.host/genHeaders
-	if ! O.host/genHeaders -k > $@ ; then $(RM) $@; fi
+inc: ../$(GENINC) ../$(GENINC)/menuDefs.h ../$(GENINC)/fastKeyDefs.h
 
-menuDefs.h:	bitMenu.c  O.host/genMenuHdr
+../$(GENINC)/menuDefs.h: ../O.$(HOST_ARCH)/genMenuHdr ../bitMenu.c
 	echo '#ifndef BIT_MENU_HEADER_DEFS_H' > $@
 	echo '#define BIT_MENU_HEADER_DEFS_H' >> $@
 	echo '/* DONT EDIT THIS FILE, IT WAS AUTOMATICALLY GENERATED */' >>$@
-	if  ! O.host/genMenuHdr  >> $@ || ! echo '#endif' >>$@  ; then $(RM) $@; fi
+	if  ! $< >> $@ || ! echo '#endif' >>$@  ; then $(RM) $@; fi
 
-genMenuHdr: genMenuHdr.o bitMenu.o
-	$(CC) -o $@ $^
+../$(GENINC)/fastKeyDefs.h:../O.$(HOST_ARCH)/genHeaders 
+	if ! $< -k > $@ ; then $(RM) $@; fi
 
-genDbd: genDbd.o ecDb.o bitMenu.o
-	$(CC) -o $@ $^
+../O.$(HOST_ARCH)/genMenuHdr:
+	$(MAKE) -C ../O.$(HOST_ARCH)/ genMenuHdr
 
-genHeaders: genHeaders.o ecDb.o bitMenu.o
-	$(CC) -o $@ $^
+../O.$(HOST_ARCH)/genHeaders:
+	$(MAKE) -C ../O.$(HOST_ARCH)/ genHeaders
 
-
-clean:
-	$(RM) -r $(SUBDIRS)
-	make -f Makefile.rtems $@
-
-allclean: clean
-	$(RM) fastKeyDefs.h menuDefs.h
-
-DEPSUBDS = $(SUBDIRS:%=%.depend)
-
-.PHONY: $(DEPSUBDS)
-depend: prebuild $(DEPSUBDS)
-	make -f Makefile.rtems depend
-
-rtems-depend:
-	make -f Makefile.rtems depend
-	
-
-$(DEPSUBDS):
-	$(MAKE) -C $(@:%.depend=%) .depend
-
-.depend:
-	gccmakedep -I.. $(SRCS:%=../%)
-
+clean::
+	$(RMDIR) $(GENINC)
