@@ -9,7 +9,7 @@
 #include <vxWorks.h>
 #include <vxLib.h>
 #include <sysLib.h>
-#elif defined(__rtems)
+#elif defined(__rtems__)
 #include <rtems.h>
 #elif defined(__linux)
 #else
@@ -24,7 +24,7 @@
 	sysBusToLocalAdrs(VME_AM_EXT_SUP_DATA, (char*)(vmeaddr), (char**)plocaladdr)
 #   define osdep_local2vme(localaddr, pvmeaddr) \
 	sysLocalToBusAdrs(VME_AM_EXT_SUP_DATA, (char*)(localaddr), (char**)pvmeaddr)
-#elif defined(__rtems)
+#elif defined(__rtems__)
 #   include <bsp.h>
 #   include <bsp/VME.h>
 #   define osdep_vme2local(vmeaddr, plocaladdr) \
@@ -49,7 +49,7 @@
 #   define osdep_memProbe(addr, writeNotRead, nBytes, pVal) \
 	vxMemProbe((void*)(addr),(writeNotRead),(nBytes),(void*)(pVal))
 
-#elif defined(__rtems)
+#elif defined(__rtems__)
 
 #   include <bsp/bspExt.h>
 
@@ -80,7 +80,7 @@
 				(int)arg)
 #	define osdep_intEnable(level) \
 		intEnable(level)
-#elif defined(__rtems)
+#elif defined(__rtems__)
 #	define osdep_IRQ_HANDLER_PROTO(name, arg) \
 		void name(void *arg, unsigned long vector)
 

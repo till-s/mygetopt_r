@@ -41,7 +41,9 @@ LIBRARY_vxWorks += drvEcdr814
 LIBRARY_RTEMS   += drvEcdr814
 LIBRARY_Linux   += drvEcdr814
 
-drvEcdr814_SRCS += drvrEcdr814.c regNodeOps.c dirOps.c bitMenu.c ecDb.c  ecdr814Lowlevel.c ecLookup.c mygetopt_r.c
+drvEcdr814_SRCS += drvrEcdr814.c regNodeOps.c dirOps.c bitMenu.c ecDb.c  ecdr814Lowlevel.c ecLookup.c
+drvEcdr814_SRCS_DEFAULT += mygetopt_r.c
+drvEcdr814_SRCS_RTEMS += -nil-
 PROD_HOST_Linux += drvEcdr814Tst
 
 drvEcdr814Tst_SRCS += drvrTst.c
