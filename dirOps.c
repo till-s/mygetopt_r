@@ -727,7 +727,7 @@ char args[MAXARGS][MAXARGCHARS];
 			unsigned long flags=0;
 			int mch;
 			MyGetOptCtxtRec oc={0};
-			while ((mch=mygetopt_r(ac,argv,"avmk",&oc)>=0)) {
+			while ( (mch=mygetopt_r(ac,argv,"avmk",&oc)) >=0 ) {
 				switch(mch) {
 					case 'v': flags|=DIROPS_LS_VERBOSE; break;
 					case 'a': flags|=DIROPS_LS_RECURSE; break;
