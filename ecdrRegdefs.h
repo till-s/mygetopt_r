@@ -57,6 +57,9 @@
 #define ECDR_INT_STAT_OFFSET	(0x10)
 #define ECDR_INT_STAT_MSK	(0x7ff)
 
+/* address range spanned by the fifo in ECDRs map */
+#define ECDR_FIFO_ADDR_RANGE	(0x300000)
+
 #if 0
 #define BITS_AD6620_MCR_MASK	((1<<8)-1)	/* bits that are actually used in this register */
 #endif

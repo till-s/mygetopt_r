@@ -151,6 +151,12 @@ unsigned long	mcsr = ((unsigned long)vec) & 0xff;
 	if (mcsr & EC_CY961_MCSR_IENA)
 		return EcErrOutOfRange;
 
+	/* the fifo spans only ECDR_FIFO_ADDR_RANGE bytes in the
+	 * address map of the ECDR
+	 */
+	if (size > ECDR_FIFO_ADDR_RANGE)
+		return EcErrOutOfRange;
+
 	if ( EcDMA_D64 & flags ) {
 		if (size % 128) return EcErrOutOfRange;
 		size /= 128;
