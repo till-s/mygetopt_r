@@ -119,28 +119,28 @@ static EcCNodeRec ecdrChannelPairRegDefs[] = {
 {	"1B.rxReset",	EcReg,		0x0,	REGUNBIT( 11, 12,	0,	1)		},
 {	"C0.fifoRst",	EcReg,		0x0,	REGUNBIT( 12, 13,	0,	1)		},
 {	"C1.fifoRst",	EcReg,		0x0,	REGUNBIT( 13, 14,	0,	1)		},
-{	"C0",		EcDir,		0x10,	{ d: &ecdrChannelDir }		},
-{	"C1",		EcDir,		0x20,	{ d: &ecdrChannelDir }		},
+{	"C0",		EcDir,		0x10,	{ d: {&ecdrChannelDir} }		},
+{	"C1",		EcDir,		0x20,	{ d: {&ecdrChannelDir} }		},
 {	"C0.gainEna",	EcReg,		0x30,	REGUNBIT( 0, 1,		0,	0)		},
 {	"C1.gainEna",	EcReg,		0x30,	REGUNBIT( 1, 2,		0,	0)		},
 {	"C0.gain",	EcReg,		0x30,	REGUNLMT( 2, 7,		0,	0,		-7,	24,	7)},
 {	"C1.gain",	EcReg,		0x30,	REGUNLMT( 7, 12,	0,	0,		-7,	24,	7)},
-{	"0A",		EcDir,		0x2000,	{ d: &ad6620Dir }		},
-{	"0B",		EcDir,		0x4000,	{ d: &ad6620Dir }		},
-{	"1A",		EcDir,		0x6000,	{ d: &ad6620Dir }		},
-{	"1B",		EcDir,		0x8000,	{ d: &ad6620Dir }		},
+{	"0A",		EcDir,		0x2000,	{ d: {&ad6620Dir} }		},
+{	"0B",		EcDir,		0x4000,	{ d: {&ad6620Dir} }		},
+{	"1A",		EcDir,		0x6000,	{ d: {&ad6620Dir} }		},
+{	"1B",		EcDir,		0x8000,	{ d: {&ad6620Dir} }		},
 };
 
 static EcCNodeRec ecdrChannelPairRawRegDefs[] = {
 {	"csr",		EcReg,		0x0,	REGUNION( 0, 32,	0,	0)		},
-{	"C0",		EcDir,		0x10,	{ d: &ecdrChannelRawDir }	},
-{	"C1",		EcDir,		0x20,	{ d: &ecdrChannelRawDir }	},
+{	"C0",		EcDir,		0x10,	{ d: {&ecdrChannelRawDir} }	},
+{	"C1",		EcDir,		0x20,	{ d: {&ecdrChannelRawDir} }	},
 {	"gain",		EcReg,		0x30,	REGUNION( 0, 32,	0,	0)		},
 {	"fifoOffset",	EcReg,		0x40,	REGUNION( 0, 32,	0,	0)		},
-{	"0A",		EcDir,		0x2000,	{ d: &ad6620RawDir }		},
-{	"0B",		EcDir,		0x4000,	{ d: &ad6620RawDir }		},
-{	"1A",		EcDir,		0x6000,	{ d: &ad6620RawDir }		},
-{	"1B",		EcDir,		0x8000,	{ d: &ad6620RawDir }		},
+{	"0A",		EcDir,		0x2000,	{ d: {&ad6620RawDir} }		},
+{	"0B",		EcDir,		0x4000,	{ d: {&ad6620RawDir} }		},
+{	"1A",		EcDir,		0x6000,	{ d: {&ad6620RawDir} }		},
+{	"1B",		EcDir,		0x8000,	{ d: {&ad6620RawDir} }		},
 };
 
 static EcCNodeDirRec ecdrChannelPairDir = {EcdrNumberOf(ecdrChannelPairRegDefs), ecdrChannelPairRegDefs, "channelPair"};
@@ -171,7 +171,7 @@ static EcCNodeRec ecdrBoardRegDefs[] = {
 {	"lclBusRst",	EcReg,		0x0,	REGUNBIT( 12, 13, 	0,	0)		},
 {	"clkMult03",	EcReg,		0x0,	REGUNION( 17, 19,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
 {	"clkMult47",	EcReg,		0x0,	REGUNION( 19, 21,	Mcm,	0)		},	/* TODO wait 15ms */ /* this sets associated clockSame */
-{	"fifoStat",	EcDir,		0x4,	{ d: &fifoStatDir }		},
+{	"fifoStat",	EcDir,		0x4,	{ d: {&fifoStatDir} }		},
 {	"intVec",	EcReg,		0x8,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
 {	"intMsk",	EcReg,		0xc,	REGUNLMT( 0, 11,	0,	0,		0,	0x7ff,	0)},
 {	"intStat",	EcReg,		0x10,	REGUNLMT( 0, 11,	RO,	0,		0,	0x7ff,	0)},
@@ -180,10 +180,10 @@ static EcCNodeRec ecdrBoardRegDefs[] = {
 {	"extHdr",	EcReg,		0x18,	REGUNION( 0, 16,	RO,	0)		},
 {	"fifoOvfl",	EcReg,		0x18,	REGUNION(16, 24,	RO,	0)		},
 {	"fifoUdfl",	EcReg,		0x18,	REGUNION(24, 32,	RO,	0)		},
-{	"01",		EcDir,		0x10000,{ d: &ecdrChannelPairDir }	},
-{	"23",		EcDir,		0x20000,{ d: &ecdrChannelPairDir }	},
-{	"45",		EcDir,		0x30000,{ d: &ecdrChannelPairDir }	},
-{	"67",		EcDir,		0x40000,{ d: &ecdrChannelPairDir }	},
+{	"01",		EcDir,		0x10000,{ d: {&ecdrChannelPairDir} }	},
+{	"23",		EcDir,		0x20000,{ d: {&ecdrChannelPairDir} }	},
+{	"45",		EcDir,		0x30000,{ d: {&ecdrChannelPairDir} }	},
+{	"67",		EcDir,		0x40000,{ d: {&ecdrChannelPairDir} }	},
 };
 
 static EcCNodeRec ecdrBoardRawRegDefs[] = {
@@ -194,20 +194,20 @@ static EcCNodeRec ecdrBoardRawRegDefs[] = {
 {	"intStat",	EcReg,		0x10,	REGUNION( 0, 32,	RO,	0)		},
 {	"head0",	EcReg,		0x14,	REGUNION( 0, 32,	RO,	0)		},
 {	"head1",	EcReg,		0x18,	REGUNION( 0, 32,	RO,	0)		},
-{	"01",		EcDir,		0x10000,{ d: &ecdrChannelPairRawDir }	},
-{	"23",		EcDir,		0x20000,{ d: &ecdrChannelPairRawDir }	},
-{	"45",		EcDir,		0x30000,{ d: &ecdrChannelPairRawDir }	},
-{	"67",		EcDir,		0x40000,{ d: &ecdrChannelPairRawDir }	},
+{	"01",		EcDir,		0x10000,{ d: {&ecdrChannelPairRawDir} }	},
+{	"23",		EcDir,		0x20000,{ d: {&ecdrChannelPairRawDir} }	},
+{	"45",		EcDir,		0x30000,{ d: {&ecdrChannelPairRawDir} }	},
+{	"67",		EcDir,		0x40000,{ d: {&ecdrChannelPairRawDir} }	},
 };
 
 static EcCNodeDirRec ecdrBoardDir = {EcdrNumberOf(ecdrBoardRegDefs), ecdrBoardRegDefs, "board"};
 static EcCNodeDirRec ecdrBoardRawDir = {EcdrNumberOf(ecdrBoardRawRegDefs), ecdrBoardRawRegDefs, "raw_board"};
 
 EcCNodeRec	ecdr814CInfo = {
-	"/",		EcDir,		0x0,	&ecdrBoardDir
+	"/",		EcDir,		0x0,	{ d: {&ecdrBoardDir}},
 };
 EcCNodeRec	ecdr814RawCInfo = {
-	"/",		EcDir,		0x0,	&ecdrBoardRawDir
+	"/",		EcDir,		0x0,	{ d: {&ecdrBoardRawDir}},
 };
 
 #undef RO 

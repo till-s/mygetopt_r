@@ -609,7 +609,7 @@ IOPtr		addr = bd->base + node->u.offset;
 EcErrStat	e;
 EcCNodeOps	ops = nodeOps[n->t];
 	for (i=0; i < n->u.r.u.a.len; i++,d++)
-		if (e=ops->getRaw(&addr,node,(Val_t*)d))
+		if ((e=ops->getRaw(&addr,node,(Val_t*)d)))
 			return e;
 	return EcErrOK;
 }
@@ -625,7 +625,7 @@ EcErrStat	e;
 EcCNodeOps	ops = nodeOps[n->t];
 
 	for (i=0; i < n->u.r.u.a.len; i++,s++)
-		if (e=ops->putRaw(&addr, node, *(Val_t*)s))
+		if ((e=ops->putRaw(&addr, node, *(Val_t*)s)))
 			return e;
 return EcErrOK;
 }
