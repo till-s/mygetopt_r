@@ -14,6 +14,30 @@ typedef enum {
 	EcCoeffList
 } EcNodeType;
 
+typedef enum {
+	EcFlgReadOnly	= (1<<8),	/* readonly register */
+	EcFlgNoInit	= (1<<9),	/* do not initialize */
+} EcRegFlags;
+
+typedef enum {
+	EcErrOK = 0,
+	EcError = -1,
+	EcErrReadOnly = -2,
+	EcErrNoMem = -3,
+	EcErrNoDevice = -4,
+	EcErrNodeNotFound = -5,
+	EcErrNotLeafNode = -6,
+	EcErrAD6620NotReset = -7	/* AD6620 writes only allowed while reset */
+	/* if adding error codes, ecStrError must be updated */
+} EcErrStat;
+
+/* convert error code to string
+ * NOTE: return value points to a
+ * static area which must not be modified 
+ */
+char *
+ecStrError(EcErrStat e);
+
 /* pointer to physical device registers */
 typedef volatile unsigned char *IOPtr;
 
@@ -39,8 +63,7 @@ typedef struct EcNodeRec_ {
 		struct {
 			unsigned char		pos1;
 			unsigned char		pos2;
-			unsigned char		rdOnly;
-			unsigned char		flags;
+			EcRegFlags 		flags : 16;
 			unsigned long		inival;
 		} r;					/* if a Reg or AD6620Reg */
 		struct {
@@ -49,7 +72,7 @@ typedef struct EcNodeRec_ {
 	} u;
 } EcNodeRec, *EcNode;
 
-#define REGUNION( pos1, pos2, rdonly, flags, inival) { r: (pos1), (pos2), (rdonly), (flags), (inival) }
+#define REGUNION( pos1, pos2, flags, inival) { r: (pos1), (pos2), (flags), (inival) }
 
 #define EcNodeIsDir(n) (EcDir==(n)->t)
 
@@ -68,16 +91,16 @@ typedef struct EcNodeListRec_ {
 /* access of leaf nodes */
 typedef unsigned long Val_t;
 
-Val_t
-ecGetValue(EcNode n, IOPtr b);
+EcErrStat
+ecGetValue(EcNode n, IOPtr b, Val_t *prval);
 
-void
+EcErrStat
 ecPutValue(EcNode n, IOPtr b, Val_t v);
 
-Val_t
-ecGetRawValue(EcNode n, IOPtr b);
+EcErrStat
+ecGetRawValue(EcNode n, IOPtr b, Val_t *prval);
 
-void
+EcErrStat
 ecPutRawValue(EcNode n, IOPtr b, Val_t v);
 
 #ifdef ECDR814_PRIVATE_IF
@@ -93,10 +116,10 @@ ecPutRawValue(EcNode n, IOPtr b, Val_t v);
 typedef struct EcNodeOpsRec_ {
 	struct EcNodeOpsRec_ *super;
 	int			initialized; 	/* must be initialized to 0 */
-	Val_t		(*get)(EcNode n, IOPtr b);
-	Val_t		(*getRaw)(EcNode n, IOPtr b);
-	void		(*put)(EcNode n, IOPtr b, Val_t v);
-	void		(*putRaw)(EcNode n, IOPtr b, Val_t v);
+	EcErrStat	(*get)(EcNode n, IOPtr b, Val_t *pv);
+	EcErrStat	(*getRaw)(EcNode n, IOPtr b, Val_t *pv);
+	EcErrStat	(*put)(EcNode n, IOPtr b, Val_t v);
+	EcErrStat	(*putRaw)(EcNode n, IOPtr b, Val_t v);
 } EcNodeOpsRec, *EcNodeOps;
 
 void

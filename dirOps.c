@@ -1,9 +1,66 @@
 /* $Id$ */
 
 #include <stdlib.h>
+#if defined(DIRSHELL) && !defined(__vxworks)
 #include <unistd.h>
+#endif
 
 #include "dirOps.h"
+
+
+#if (defined(__vxworks) || defined(DEBUG)) && defined(DIRSHELL)
+
+#ifdef __vxworks
+#define optind myoptind
+#define getopt mygetopt
+#endif
+
+/* provide getopt for vxworks */
+int myoptind=1;
+
+static int
+mygetopt(int argc, char **argv, char *optstr)
+{
+int rval;
+static char		*chpt=0;
+
+	/* leftover options from previous call ? */
+	while (!chpt) {
+		int nrot,endrot;
+
+		if (myoptind>=argc) {
+			return -1; /* no more options */
+		}
+		for (	endrot=myoptind+1;
+			endrot<argc;
+			endrot++) {
+			if ('-'==argv[endrot][0]) {
+				endrot++;
+				break;
+			}
+		}
+		nrot=endrot-myoptind;
+
+		while ('-'!=*argv[myoptind] && nrot--) {
+			char *tmp=argv[myoptind];
+			int i;
+			for (i=myoptind; i<endrot-1; i++) {
+				argv[i]=argv[i+1];
+			}
+			argv[endrot-1]=tmp;
+		}
+		if (nrot<=0) {
+			/* no more options found */
+			return -1;
+		}
+		if (!*(chpt=argv[myoptind]+1)) chpt=0; /* empty string */
+		myoptind++;
+	}
+	rval = strchr(optstr,*chpt) ? *chpt : '?';
+	if (!*(++chpt)) chpt=0;
+	return rval;
+}
+#endif
 
 extern EcNodeRec root;
 /* routines for interactive operation */
@@ -42,9 +99,12 @@ EcNode 	n=l->n;
 	if (EcNodeIsDir(n)) {
 		fprintf(f,".");
 	} else {
-		if ( DIROPS_LS_VERBOSE & o->flags) {
-			fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
-			p, ecGetValue(n, p), n->u.r.inival, ecGetRawValue(n,p) );
+		if ( DIROPS_LS_VERBOSE & o->flags ) {
+			Val_t v,rv;
+			EcErrStat e=(ecGetValue(n,p,&v) || ecGetRawValue(n,p,&rv));
+			if (e) fprintf(f,"ERROR: %s",ecStrError(e));
+			else fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
+					p, v, n->u.r.inival, rv );
 		}
 	}
 	fprintf(f,"\n");
@@ -57,7 +117,7 @@ ecPwd(FILE *f)
 	rprint(cwd, f ? f : stderr);
 }
 
-int
+EcErrStat
 ecGet(EcKey k, Val_t *valp)
 {
 IOPtr p=0;
@@ -66,15 +126,14 @@ EcNodeList l;
 	for (l=cwd; l; l=l->p)
 		p+=l->n->offset;
 	if (!(n=lookupEcNode(cwd->n, k, &p, 0))) {
-		return -1;
+		return EcErrNodeNotFound;
 	}
 	if (EcNodeIsDir(n))
-		return -2;
-	*valp=ecGetValue(n, p);
-	return 0;
+		return EcErrNotLeafNode;
+	return ecGetValue(n, p, valp);
 }
 
-int
+EcErrStat
 ecPut(EcKey k, Val_t val)
 {
 IOPtr p=0;
@@ -83,12 +142,11 @@ EcNodeList l;
 	for (l=cwd; l; l=l->p)
 		p+=l->n->offset;
 	if (!(n=lookupEcNode(cwd->n, k, &p, 0))) {
-		return -1;
+		return EcErrNodeNotFound;
 	}
 	if (EcNodeIsDir(n))
-		return -2;
-	ecPutValue(n, p, val);
-	return 0;
+		return EcErrNotLeafNode;
+	return ecPutValue(n, p, val);
 }
 
 /* change working directory */
@@ -128,6 +186,7 @@ LsOptsRec  o = { f: f, flags: flags };
 	}
 	}
 	if (DIROPS_LS_RECURSE & flags) {
+		/* don't count cwd twice */
 		walkEcNode(n, printNodeName, b-(n->offset), 0, (void*)&o);
 	} else {
 		if (EcNodeIsDir(n)) {
@@ -205,7 +264,7 @@ if (!strcmp("cd",args[0])) {
 if (!strcmp("ls",args[0])) {
 	unsigned long flags=0;
 	int ch;
-	optind=0;
+	optind=1;
 	while ((ch=getopt(ac,argv,"av"))>=0) {
 		switch(ch) {
 			case 'v': flags|=DIROPS_LS_VERBOSE; break;
@@ -215,6 +274,22 @@ if (!strcmp("ls",args[0])) {
 	}
 	ecLs(EcString2Key((optind < ac) ? args[optind] : 0), stderr, flags);
 } else
+#ifdef DEBUG
+if (!strcmp("tstopt",args[0])) {
+	int ch;
+	myoptind=1;
+	while ((ch=mygetopt(ac,argv,"avk"))) {
+		int i;
+		fprintf(stderr,"found '%c', optind is %i, argv now:\n",
+				ch, myoptind);
+		for (i=0; i<ac; i++) {
+			fprintf(stderr,"%s | ",argv[i]);
+		}
+		fprintf(stderr,"\n");
+		if (-1==ch) break;
+	}
+} else
+#endif
 if (!strcmp("get",args[0])) {
 	Val_t v;
 	if (ac<2) {
@@ -237,21 +312,14 @@ if (!strcmp("get",args[0])) {
 } else
 if (!strcmp("put",args[0])) {
 	Val_t v;
+	EcErrStat e;
 	if (ac<3 || 1!=sscanf(args[2],"%i",&v)) {
 		fprintf(stderr,"key and value args needed\n");
 		continue;
 	}
-	switch (ecPut(args[1],v) || ecGet(args[1],&v)) {
-		default:
-			fprintf(stderr,"unknown error\n");
-		case -1:
-			fprintf(stderr,"node not found\n");
-			continue;
-		case -2:
-			fprintf(stderr,"node not a leaf\n");
-			continue;
-		case 0:
-			break;
+	if ((e=ecPut(args[1],v)) || (e=ecGet(args[1],&v))) {
+		fprintf(stderr,"ERROR: %s\n",ecStrError(e));
+		continue;
 	}
 	fprintf(stderr,"read back VALUE: %i (0x%x)\n",v,v);
 } else

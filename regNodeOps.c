@@ -17,58 +17,76 @@ static inline Val_t
 merge(EcNode n, IOPtr b, Val_t val)
 {
 Val_t m = ECREGMASK(n);
-Val_t v = ecGetRawValue(n,b);
+Val_t v; 
+	ecGetRawValue(n,b,&v);
 	return (v & ~m) | ((val<<ECREGPOS(n))&m);
 }
 
-static Val_t
-get(EcNode n, IOPtr b)
+static EcErrStat
+get(EcNode n, IOPtr b, Val_t *pv)
 {
-Val_t rval = ecGetRawValue(n,b);
-	return (rval & ECREGMASK(n))>>ECREGPOS(n);
+EcErrStat rval=ecGetRawValue(n,b,pv);
+	*pv = (*pv & ECREGMASK(n))>>ECREGPOS(n);
+	return rval;
 }
 
-static void
+static EcErrStat
 put(EcNode n, IOPtr b, Val_t val)
 {
-	ecPutRawValue(n,b,val);
+	if (n->u.r.flags & EcFlgReadOnly)
+		return EcErrReadOnly;
+	return ecPutRawValue(n,b,val);
 }
 
-static Val_t
-getRaw(EcNode n, IOPtr b)
+static EcErrStat
+getRaw(EcNode n, IOPtr b, Val_t *rp)
 {
 volatile Val_t *vp = (Val_t *)b;
-	return RDBE(vp);
+	*rp = RDBE(vp);
+	return EcErrOK;
 }
 
 
-static void
+static EcErrStat
 putRaw(EcNode n, IOPtr b, Val_t val)
 {
 volatile Val_t *vp = (Val_t *)b;
 	WRBE(merge(n,b,val),vp);
+	return EcErrOK;
 }
 
-static Val_t
-adGetRaw(EcNode n, IOPtr b)
+static EcErrStat
+adGetRaw(EcNode n, IOPtr b, Val_t *rp)
 {
 volatile Val_t *vp = (Val_t *)b;
-	return (RDBE(vp) & 0xffff) | ((RDBE(vp+1) & 0xffff)<<16);
+	*rp = (RDBE(vp) & 0xffff) | ((RDBE(vp+1) & 0xffff)<<16);
+	return EcErrOK;
 }
 
+#include "ecdrRegdefs.h"
 
-static void
+static EcErrStat
 adPutRaw(EcNode n, IOPtr b, Val_t val)
 {
 volatile Val_t *vp = (Val_t *)b;
+	/* allow write attempt only if the receiver is in RESET
+	 * state. At this low level, we leave the abstraction
+	 * behind and dive directly into the guts...
+	 */
+	if ( (n->offset != OFFS_AD6620_MCR ||
+	     !(val & BITS_AD6620_MCR_RESET ))
+	    && ! (*(Val_t*)(b-n->offset+OFFS_AD6620_MCR) & BITS_AD6620_MCR_RESET))
+		return EcErrAD6620NotReset;
+
 	val = merge(n,b,val);
 	EIEIO; /* make sure read of old value completes */
 	WRBE(val & 0xffff, vp);
 	EIEIO; /* most probably not necessary in guarded memory */
 	WRBE((val>>16)&0xffff, vp+1);
 	EIEIO; /* just in case they read it back again: enforce
-            * completion of write before load
-			*/
+	        * completion of write before load
+	        */
+	return EcErrOK;
 }
 
 

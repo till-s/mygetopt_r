@@ -2,7 +2,7 @@ SRCS = drvrEcdr814.c regNodeOps.c dirOps.c
 
 OBJS = $(SRCS:%.c=%.o)
 
-CFLAGS=-g -DDIRSHELL
+CFLAGS=-g -DDIRSHELL -DDEBUG
 
 tst: $(OBJS)
 	$(CC) -o $@ $^
@@ -26,7 +26,7 @@ drvrEcdr814.o: drvrEcdr814.c /usr/include/stdio.h /usr/include/features.h \
   /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h \
   /usr/include/alloca.h /usr/include/string.h /usr/include/assert.h \
   drvrEcdr814.h regNodeOps.h ecdr814RegTable.c
-regNodeOps.o: regNodeOps.c regNodeOps.h drvrEcdr814.h
+regNodeOps.o: regNodeOps.c regNodeOps.h drvrEcdr814.h ecdrRegdefs.h
 dirOps.o: dirOps.c /usr/include/stdlib.h /usr/include/features.h \
   /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h \
   /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stddef.h \
@@ -35,9 +35,7 @@ dirOps.o: dirOps.c /usr/include/stdlib.h /usr/include/features.h \
   /usr/include/time.h /usr/include/endian.h /usr/include/bits/endian.h \
   /usr/include/sys/select.h /usr/include/bits/select.h \
   /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h \
-  /usr/include/alloca.h /usr/include/unistd.h \
-  /usr/include/bits/posix_opt.h /usr/include/bits/confname.h \
-  /usr/include/getopt.h dirOps.h /usr/include/stdio.h \
+  /usr/include/alloca.h dirOps.h /usr/include/stdio.h \
   /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stdarg.h \
   /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
   /usr/include/gconv.h /usr/include/bits/stdio_lim.h drvrEcdr814.h

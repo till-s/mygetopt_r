@@ -4,7 +4,6 @@
 #include <assert.h>
 
 #define ECDR814_PRIVATE_IF
-#define DEBUG
 
 #undef  INTKEYS
 #include "drvrEcdr814.h"
@@ -22,34 +21,34 @@ EcNodeOpsRec	ecDefaultNodeOps = {
 
 static EcNodeOps		nodeOps[8]={&ecDefaultNodeOps,};
 
-Val_t
-ecGetValue(EcNode n, IOPtr b)
+EcErrStat
+ecGetValue(EcNode n, IOPtr b, Val_t *vp)
 {
 EcNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->get);
-	return ops->get(n,b);
+	return ops->get(n,b,vp);
 }
 
-Val_t
-ecGetRawValue(EcNode n, IOPtr b)
+EcErrStat
+ecGetRawValue(EcNode n, IOPtr b, Val_t *vp)
 {
 EcNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->getRaw);
-	return ops->getRaw(n,b);
+	return ops->getRaw(n,b,vp);
 }
 
-void
+EcErrStat
 ecPutValue(EcNode n, IOPtr b, Val_t val)
 {
 EcNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->put);
-	ops->put(n,b,val);
+	return ops->put(n,b,val);
 }
 
-void
+EcErrStat
 ecPutRawValue(EcNode n, IOPtr b, Val_t val)
 {
 EcNodeOps ops;
@@ -211,10 +210,10 @@ cleanup:
 
 #ifdef DEBUG
 static EcNodeRec ad[]={
-	{ "reg0", EcAD6620Reg, 0x0, {r : {3, 4, 0, 0, 1} } },
-	{ "reg1", EcAD6620Reg, 0x10, {r : {14, 18, 0, 0, 5} } },
-	{ "reg2", EcAD6620Reg, 0x10, {r : {3, 5, 0, 0, 2} }  },
-	{ "reg3", EcAD6620Reg, 0x20, {r : {3, 5, 0, 0, 3} } },
+	{ "reg0", EcAD6620Reg, 0x0, {r : {3, 4, 0, 1} } },
+	{ "reg1", EcAD6620Reg, 0x10, {r : {14, 18, 0, 5} } },
+	{ "reg2", EcAD6620Reg, 0x10, {r : {3, 5, 0, 2} }  },
+	{ "reg3", EcAD6620Reg, 0x20, {r : {3, 5, 0, 3} } },
 };
 
 static EcNodeDirRec adnode={
@@ -222,8 +221,8 @@ static EcNodeDirRec adnode={
 };
 
 static EcNodeRec board[]={
-	{ "breg0", EcReg, 0x0, {r: {7, 10, 0, 0, 6} } },
-	{ "breg1", EcReg, 0x4, {r: {3, 5, 0, 0,  1} } },
+	{ "breg0", EcReg, 0x0, {r: {7, 10, 0, 6} } },
+	{ "breg1", EcReg, 0x4, {r: {3, 5, 0,  1} } },
 	{ "ad0",   EcDir, 0x100,{ &adnode } },
 	{ "ad1",   EcDir, 0x200,{ &adnode } },
 };
@@ -231,12 +230,14 @@ static EcNodeRec board[]={
 static EcNodeDirRec boardnode={
 	EcdrNumberOf(board), board
 };
+#endif
+
+static EcNodeDirRec boardDirectory={0};
 
 EcNodeRec root={
-	"/", EcDir, 0, {&boardnode}
+	"/", EcDir, 0, {&boardDirectory}
 	
 };
-#endif
 
 #include "ecdr814RegTable.c"
 
@@ -261,7 +262,9 @@ walkEcNode(EcNode n, void (*fn)(EcNodeList,IOPtr,void*), IOPtr p, EcNodeList par
 static void
 putIniVal(EcNodeList l, IOPtr p, void* arg)
 {
-ecPutValue(l->n, p, l->n->u.r.inival);
+EcNode n=l->n;
+if ( ! (n->u.r.flags & (EcFlgReadOnly|EcFlgNoInit)))
+	ecPutValue(n, p, n->u.r.inival);
 }
 
 #ifdef DEBUG
@@ -276,19 +279,86 @@ rprintNode(EcNodeList l)
 static void
 printNodeName(EcNodeList l, IOPtr p, void* arg)
 {
+	Val_t v,rv;
 	rprintNode(l);
+	ecGetValue(l->n,p,&v);
+	ecGetRawValue(l->n,p,&rv);
 	printf(" 0x%08x: %i (ini: %i, raw: 0x%08x)\n",
-		p, ecGetValue(l->n, p), l->n->u.r.inival, ecGetRawValue(l->n,p) );
+		p, v, l->n->u.r.inival, rv );
 }
 #endif
+
+/* try to locate an  ECDR814 board at
+ * base address 'b'.
+ * On success, initialize it and create
+ * a directory node in the root directory.
+ * RETURNS: 0 on success, -1 on failure
+ *
+ * NOTE: the name string will _not_ be
+ * copied but will be 'owned' by the driver
+ * on success.
+ */
+
+
+int
+ecAddBoard(char *name, IOPtr b)
+{
+int		rval=-1;
+EcNodeDir	bd=&boardDirectory;
+EcNode		n;
+	/* try to detect board */
+	/* initialize */
+	/* raw initialization sets pretty much everything to zero */
+	walkEcNode( &ecdr814RawBoard, putIniVal, b, 0, 0);
+	/* now set individual bits as defined in the board table */
+	walkEcNode( &ecdr814Board, putIniVal, b, 0, 0);
+	/* TODO other initialization (VME, RW...) */
+
+	/* on success, create directory entry */
+	assert(bd->nodes = (EcNode) realloc(bd->nodes,
+						sizeof((*(bd->nodes))) * (++bd->nels)));
+
+	n=bd->nodes+(bd->nels-1);
+	n->name=name;
+	n->offset=(unsigned long)b;
+	n->t = EcDir;
+	n->u.d.n = ecdr814Board.u.d.n;
+	rval=0;
+
+cleanup:
+	return rval;
+
+}
 
 void
 drvrEcdr814Init(void)
 {
-	/* TODO create a directory node for every board */
 	/* initialize tiny virtual fn tables */
 	initRegNodeOps();
 }
+
+static char *ecErrNames[] = {
+	"no error",
+	"unknown error",
+	"read only register",
+	"no Memory",
+	"device not found",
+	"directory node not found",
+	"node is not a leaf entry",
+	"AD6620 must be in reset state for writing",
+};
+
+char *
+ecStrError(EcErrStat e)
+{
+	e=-e;
+	if (e >= EcdrNumberOf(ecErrNames))
+		e=EcError;
+	return ecErrNames[e];
+}
+
+
+#if !defined(__vxworks) && !defined(__rtems)
 
 int
 main(int argc, char ** argv)
@@ -305,11 +375,12 @@ memset(tstdev,0,0x1000);
 
 printf("node size: %i\n",sizeof(EcNodeRec));
 
-root.offset=(unsigned long)tstdev;
+//root.offset=(unsigned long)tstdev;
 #ifdef DEBUG
-walkEcNode( &root, putIniVal, 0, 0, 0);
-walkEcNode( &root, printNodeName, 0, 0, 0);
+//walkEcNode( &root, putIniVal, 0, 0, 0);
+//walkEcNode( &root, printNodeName, 0, 0, 0);
 //walkEcNode( &ecdr814RawBoard, printNodeName, &b, 0, 0);
+ecAddBoard("B0",tstdev);
 #endif
 
 #ifdef DIRSHELL
@@ -339,3 +410,5 @@ if (n) {
 }
 fprintf(stderr,"\n");
 }
+
+#endif
