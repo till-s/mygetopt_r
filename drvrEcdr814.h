@@ -15,8 +15,11 @@ typedef enum {
 } EcNodeType;
 
 typedef enum {
+	EcFlgMenuMask	= (1<<5)-1,	/* uses a menu */
 	EcFlgReadOnly	= (1<<8),	/* readonly register */
 	EcFlgNoInit	= (1<<9),	/* do not initialize */
+	EcFlgAD6620RStatic = (1<<10),	/* may only read if in reset state */
+	EcFlgAD6620RWStatic = (1<<11),	/* may only write if in reset state */
 } EcRegFlags;
 
 typedef enum {
@@ -27,7 +30,8 @@ typedef enum {
 	EcErrNoDevice = -4,
 	EcErrNodeNotFound = -5,
 	EcErrNotLeafNode = -6,
-	EcErrAD6620NotReset = -7	/* AD6620 writes only allowed while reset */
+	EcErrAD6620NotReset = -7,	/* AD6620 writes only allowed while reset */
+	EcErrOutOfRange = -8		/* Value out of range */
 	/* if adding error codes, ecStrError must be updated */
 } EcErrStat;
 
@@ -110,7 +114,8 @@ ecPutRawValue(EcNode n, IOPtr b, Val_t v);
  * use this.
  */
 
-#define ECREGMASK(n) (((1<<((n)->u.r.pos1))-1)^((1<<((n)->u.r.pos2))-1))
+#define ECREGMASK(n) (((1<<((n)->u.r.pos1))-1) ^ \
+		       (((n)->u.r.pos2 & 31 ? 1<<(n)->u.r.pos2 : 0)-1))
 #define ECREGPOS(n) ((n)->u.r.pos1)
 
 typedef struct EcNodeOpsRec_ {

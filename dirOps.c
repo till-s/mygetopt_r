@@ -6,6 +6,7 @@
 #endif
 
 #include "dirOps.h"
+#include "bitMenu.h"
 
 
 #if (defined(__vxworks) || defined(DEBUG)) && defined(DIRSHELL)
@@ -16,7 +17,7 @@
 #endif
 
 /* provide getopt for vxworks */
-int myoptind=1;
+int myoptind=0;
 
 static int
 mygetopt(int argc, char **argv, char *optstr)
@@ -86,11 +87,12 @@ typedef struct LsOptsRec_ {
 } LsOptsRec, *LsOpts;
 
 static void
-printNodeName(EcNodeList l, IOPtr p, void *arg)
+printNodeInfo(EcNodeList l, IOPtr p, void *arg)
 {
 LsOpts	o=(LsOpts)arg;
 FILE	*f=o->f ? o->f : stderr;
 EcNode 	n=l->n;
+EcMenu	m=0;
 
 	if (l->p) {
 		rprint(l->p,f);
@@ -99,15 +101,31 @@ EcNode 	n=l->n;
 	if (EcNodeIsDir(n)) {
 		fprintf(f,".");
 	} else {
+		m=ecMenu(n->u.r.flags);
+		if ( m ) {
+			fprintf(f," -v");
+		}
 		if ( DIROPS_LS_VERBOSE & o->flags ) {
 			Val_t v,rv;
 			EcErrStat e=(ecGetValue(n,p,&v) || ecGetRawValue(n,p,&rv));
-			if (e) fprintf(f,"ERROR: %s",ecStrError(e));
-			else fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
-					p, v, n->u.r.inival, rv );
+			if (e) {
+				fprintf(f,"ERROR: %s",ecStrError(e));
+			} else {
+				if (m)
+					fprintf(f," @0x%08x: %s (ini: %s, raw: 0x%08x)",
+						p, m->items[v].name, m->items[n->u.r.inival].name, rv );
+				else
+					fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
+						p, v, n->u.r.inival, rv );
+			}
 		}
 	}
 	fprintf(f,"\n");
+	if ( DIROPS_LS_SHOWMENU & o->flags && m ) {
+		int i;
+		for (i=0; i<m->nels; i++)
+			fprintf(f, "   - %2i: %s\n",i,m->items[i].name);
+	}
 }
 
 /* print current path */
@@ -118,11 +136,13 @@ ecPwd(FILE *f)
 }
 
 EcErrStat
-ecGet(EcKey k, Val_t *valp)
+ecGet(EcKey k, Val_t *valp, EcMenu *mp)
 {
-IOPtr p=0;
-EcNode n;
-EcNodeList l;
+EcErrStat	e;
+IOPtr		p=0;
+EcNode		n;
+EcNodeList	l;
+	if (mp) *mp=0;
 	for (l=cwd; l; l=l->p)
 		p+=l->n->offset;
 	if (!(n=lookupEcNode(cwd->n, k, &p, 0))) {
@@ -130,7 +150,13 @@ EcNodeList l;
 	}
 	if (EcNodeIsDir(n))
 		return EcErrNotLeafNode;
-	return ecGetValue(n, p, valp);
+
+	if (e=ecGetValue(n, p, valp))
+		return e;
+
+	if (mp) *mp = ecMenu(n->u.r.flags);
+
+	return e;
 }
 
 EcErrStat
@@ -187,7 +213,7 @@ LsOptsRec  o = { f: f, flags: flags };
 	}
 	if (DIROPS_LS_RECURSE & flags) {
 		/* don't count cwd twice */
-		walkEcNode(n, printNodeName, b-(n->offset), 0, (void*)&o);
+		walkEcNode(n, printNodeInfo, b-(n->offset), 0, (void*)&o);
 	} else {
 		if (EcNodeIsDir(n)) {
 			int i;
@@ -195,10 +221,10 @@ LsOptsRec  o = { f: f, flags: flags };
 			EcNodeListRec empty = { 0 };
 			for (i=0,nn=n->u.d.n->nodes; i<n->u.d.n->nels; i++,nn++) {
 				empty.n=nn;
-				printNodeName(&empty, b + nn->offset, (void*)&o);
+				printNodeInfo(&empty, b + nn->offset, (void*)&o);
 			}
 		} else {
-			printNodeName(l, b, (void*)&o);
+			printNodeInfo(l, b, (void*)&o);
 		}
 	}
 	while (l) {
@@ -264,11 +290,12 @@ if (!strcmp("cd",args[0])) {
 if (!strcmp("ls",args[0])) {
 	unsigned long flags=0;
 	int ch;
-	optind=1;
-	while ((ch=getopt(ac,argv,"av"))>=0) {
+	optind=0;
+	while ((ch=getopt(ac,argv,"avm"))>=0) {
 		switch(ch) {
 			case 'v': flags|=DIROPS_LS_VERBOSE; break;
 			case 'a': flags|=DIROPS_LS_RECURSE; break;
+			case 'm': flags|=DIROPS_LS_SHOWMENU; break;
 			default:  fprintf(stderr,"unknown option\n"); break;
 		}
 	}
@@ -277,7 +304,7 @@ if (!strcmp("ls",args[0])) {
 #ifdef DEBUG
 if (!strcmp("tstopt",args[0])) {
 	int ch;
-	myoptind=1;
+	myoptind=0;
 	while ((ch=mygetopt(ac,argv,"avk"))) {
 		int i;
 		fprintf(stderr,"found '%c', optind is %i, argv now:\n",
@@ -291,37 +318,43 @@ if (!strcmp("tstopt",args[0])) {
 } else
 #endif
 if (!strcmp("get",args[0])) {
-	Val_t v;
+	Val_t		v;
+	EcMenu		m;
+	EcErrStat	e;
 	if (ac<2) {
 		fprintf(stderr,"key arg needed\n");
 		continue;
 	}
-	switch (ecGet(args[1],&v)) {
-		default:
-			fprintf(stderr,"unknown error\n");
-		case -1:
-			fprintf(stderr,"node not found\n");
-			continue;
-		case -2:
-			fprintf(stderr,"node not a leaf\n");
-			continue;
-		case 0:
-			break;
-	}
-	fprintf(stderr,"VALUE: %i (0x%x)\n",v,v);
-} else
-if (!strcmp("put",args[0])) {
-	Val_t v;
-	EcErrStat e;
-	if (ac<3 || 1!=sscanf(args[2],"%i",&v)) {
-		fprintf(stderr,"key and value args needed\n");
-		continue;
-	}
-	if ((e=ecPut(args[1],v)) || (e=ecGet(args[1],&v))) {
+	if (e=ecGet(args[1],&v, &m)) {
 		fprintf(stderr,"ERROR: %s\n",ecStrError(e));
 		continue;
 	}
-	fprintf(stderr,"read back VALUE: %i (0x%x)\n",v,v);
+	fprintf(stderr,"VALUE: ");
+	if (m) {
+		fprintf(stderr,"%s\n", m->items[v].name);
+	} else {
+		fprintf(stderr,"%i (0x%x)\n",v,v);
+	}
+} else
+if (!strcmp("put",args[0])) {
+	Val_t		v;
+	EcMenu		m;
+	EcErrStat	e;
+	char		*end;
+	if (ac<3 || (v=strtoul(args[2],&end,0), !*args[2] || *end)) {
+		fprintf(stderr,"key and value args needed\n");
+		continue;
+	}
+	if ((e=ecPut(args[1],v)) || (e=ecGet(args[1],&v,&m))) {
+		fprintf(stderr,"ERROR: %s\n",ecStrError(e));
+		continue;
+	}
+	fprintf(stderr,"read back VALUE: ");
+	if (m) {
+		fprintf(stderr,"%s\n", m->items[v].name);
+	} else {
+		fprintf(stderr,"%i (0x%x)\n",v,v);
+	}
 } else
 if (!strcmp("quit",args[0])) {
 	return;

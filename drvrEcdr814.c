@@ -8,6 +8,8 @@
 #undef  INTKEYS
 #include "drvrEcdr814.h"
 #include "regNodeOps.h"
+#include "bitMenu.h"
+#include "ecdrRegdefs.h"
 
 
 EcNodeOpsRec	ecDefaultNodeOps = {
@@ -306,6 +308,11 @@ ecAddBoard(char *name, IOPtr b)
 int		rval=-1;
 EcNodeDir	bd=&boardDirectory;
 EcNode		n;
+
+	/* ecdrRegdefs.h makes the assumption that
+	 * the base address is aligned to 0x1fff
+	 */
+	assert( ! ((unsigned long)b & ECDR_AD6620_ALIGNMENT) );
 	/* try to detect board */
 	/* initialize */
 	/* raw initialization sets pretty much everything to zero */
@@ -335,6 +342,8 @@ drvrEcdr814Init(void)
 {
 	/* initialize tiny virtual fn tables */
 	initRegNodeOps();
+	/* register the menus */
+	walkEcNode( &ecdr814Board, ecRegisterMenu, 0, 0, 0);
 }
 
 static char *ecErrNames[] = {
@@ -346,6 +355,7 @@ static char *ecErrNames[] = {
 	"directory node not found",
 	"node is not a leaf entry",
 	"AD6620 must be in reset state for writing",
+	"value out of range",
 };
 
 char *
@@ -367,10 +377,12 @@ IOPtr b=0;
 EcKey		key;
 EcNode	n;
 EcNodeList l=0;
-char *	tstdev=malloc(0x100000);
+char *	buf=malloc(0x100000 +  ECDR_AD6620_ALIGNMENT);
+char *tstdev = (char*)((((unsigned long)buf)+ECDR_AD6620_ALIGNMENT)&~ECDR_AD6620_ALIGNMENT);
+
+memset(tstdev,0,0x1000);
 
 drvrEcdr814Init();
-memset(tstdev,0,0x1000);
 
 
 printf("node size: %i\n",sizeof(EcNodeRec));
