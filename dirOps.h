@@ -3,6 +3,7 @@
 #define ECDR_DIR_OPS_H
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "drvrEcdr814.h"
 
@@ -24,7 +25,10 @@ ecCd(EcKey k, FILE *f);
 #define DIROPS_LS_SHOWMENU	(1<<2)
 #define DIROPS_LS_FKEYINFO	(1<<3)
 
-void
-ecLs(EcKey k, FILE *f, int flags);
+/* argument list must be
+ * (FILE *f, int flags)
+ */
+EcErrStat
+ecLs(EcKey k, va_list ap);
 
 #endif

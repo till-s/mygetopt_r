@@ -26,6 +26,8 @@
 EcFKey
 ecBFk(EcFKey first, ...);
 
+#define ECMYFKEY(n) (((n) - (n)->parent->u.entries)+1)
+
 #define EMPTY_FKEY		((EcFKey)0)
 
 /* prepend an fkey to a path of fkeys */

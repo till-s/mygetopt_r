@@ -43,6 +43,8 @@ static EcNode		ecdr814RawBoard=0;
  * on success.
  */
 
+#define DO_RAW_ENTRY 2
+
 
 EcErrStat
 ecAddBoard(char *name, IOPtr vme_b, EcBoardDesc *pdesc)
@@ -78,13 +80,13 @@ Val_t		v;
 	assert( RDBE(&v) == SOME_VALUE );
 #endif
 	/* allocate and initialize board descriptor entry */
-	if (EcdrNumberOf(boards)<=nBoards+1) {
+	if (EcdrNumberOf(boards) < nBoards+DO_RAW_ENTRY) {
 		rval=EcErrOutOfRange;
 		goto cleanup;
 	}
 
 	/* insert the new board before the old 'raw' boards */
-	for (k=nBoards; k>nBoards/2; k--)
+	for (k=nBoards; k>nBoards/DO_RAW_ENTRY; k--)
 		boards[k]=boards[k-1];
 	nBoards++;
 
@@ -145,7 +147,8 @@ cleanup:
 
 EcBoardDesc ecGetBoardDesc(int instance)
 {
-	if (instance < 0 || instance >=nBoards)
+	/* no access to the raw boards */
+	if (instance < 0 || instance >=nBoards/DO_RAW_ENTRY)
 		return 0;
 	return boards[instance];
 }
@@ -211,9 +214,10 @@ ecWarning(EcErrStat e, char *message, ...)
 {
 va_list ap;
 va_start(ap, message);
-fprintf(stderr,"drvrEcdr814 Warning:  %s ",ecStrError(e));
+fprintf(stderr,"drvrEcdr814 Warning:  <%s> ",ecStrError(e));
 vfprintf(stderr,message,ap);
 va_end(ap);
+fprintf(stderr,"\n");
 }
 
 EcFKey

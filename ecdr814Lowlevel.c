@@ -85,8 +85,9 @@ ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n)
 {
 EcErrStat	rval;
 int		tmp;
+EcFKey		fk;
 
-Val_t		mCiC2, mCiC5, mRCF, nTaps, frstTap;
+Val_t		mCiC2, mCiC5, mRCF, nTaps, frstTap, v;
 
 /* get the relevant AD6620 parameters */
 /* find a node for the AD6620. Note that the calculated
@@ -115,19 +116,38 @@ tmp =  mCiC2 * mCiC5 * mRCF;
 if (nTaps > (tmp > 256 ? 256 : tmp))
 	return EcErrTooManyTaps;
 
-/* TODO:
+/* 
  * write the total decimation to the respective ECDR register
  * check consistency of total decimation among ad6620 chip pairs
  * on the same channel.
-if (tmp & 1)
-	ecWarning( ecErrOK, "total decimation is not even");
-tmp = (tmp>>1) - 1;
  */
+if (tmp & 1)
+	ecWarning( EcErrOK, "total decimation is not even");
+tmp = (tmp>>1);
+
+switch (ECMYFKEY(n)) {
+	case FK_channelPair_0A:
+	case FK_channelPair_0B:
+		fk = BUILD_FKEY3(FK_PARENT, FK_channelPair_C0, FK_channel_totDecm_2);
+		break;
+	case FK_channelPair_1A:
+	case FK_channelPair_1B:
+		fk = BUILD_FKEY3(FK_PARENT, FK_channelPair_C1, FK_channel_totDecm_2);
+		break;
+	default:
+		return EcErrNodeNotFound;
+}
+
+if (rval = ecLkupNPut(bd, n, fk, tmp))
+	return rval;
 
 /*
- * TODO: allow mCiC2 == 1 if rx clock higher than acquisition clk
+ * allow mCiC2 == 1 if rx clock higher than acquisition clk
  */
-if (mCiC2 < 2 )
+if (rval = ecLkupNGet(bd,n,BUILD_FKEY2(FK_PARENT, FK_channelPair_clockSame), &v))
+	return rval;
+
+if ( v && mCiC2 < 2 )
 	return EcErrTooManyTaps;
 
 return EcErrOK;

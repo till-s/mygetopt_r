@@ -672,6 +672,7 @@ EcCNode		n=node->cnode;
 EcErrStat
 ecLkupNGet(EcBoardDesc bd, EcNode node, EcFKey k, Val_t *pv)
 {
+	if (EC_ROOT_LOOKUP==node) node=bd->root;
 	if (!(node=ecNodeLookupFast(node, k))) {
 		return EcErrNodeNotFound;
 	}
@@ -681,10 +682,11 @@ ecLkupNGet(EcBoardDesc bd, EcNode node, EcFKey k, Val_t *pv)
 EcErrStat
 ecLkupNPut(EcBoardDesc bd, EcNode node, EcFKey k, Val_t pv)
 {
-if (!(node=ecNodeLookupFast(node, k))) {
-	return EcErrNodeNotFound;
-}
-return ecPutValue(bd, node, pv);
+	if (EC_ROOT_LOOKUP==node) node=bd->root;
+	if (!(node=ecNodeLookupFast(node, k))) {
+		return EcErrNodeNotFound;
+	}
+	return ecPutValue(bd, node, pv);
 }
 
 static void

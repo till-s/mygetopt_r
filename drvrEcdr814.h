@@ -10,6 +10,7 @@
 
 #define EC_DIRSEP_CHAR		'/'
 #define EC_BRDSEP_CHAR		':'
+#define EC_GLOB_CHAR		'*'
 #define EC_UPDIR_NAME		".."
 #define EC_UPDIR_NAME_LEN	2
 
@@ -204,8 +205,12 @@ ecCNodeLookup(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l);
 EcCNode
 ecCNodeLookupFast(EcCNode n, EcFKey key, IOPtr *p, EcCNodeList *l);
 
+/* this may be passed to ecNodeLookup to specify
+ * the default root node
+ */
+#define EC_ROOT_LOOKUP	((EcNode)0)
 
-/* lookup a node and a board descriptor */
+/* lookup a node and a board descriptor (pbd may be NULL) */
 EcNode
 ecNodeLookup(EcNode n, EcKey key, EcBoardDesc *pbd);
 

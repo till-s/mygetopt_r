@@ -2,16 +2,17 @@
 
 #include <stdlib.h>
 #include <string.h>
-#if defined(DIRSHELL) && !defined(__vxworks)
+#if !defined(__vxworks)
 #include <unistd.h>
 #endif
+#include <stdarg.h>
 
 #include "dirOps.h"
 #include "bitMenu.h"
 #include "ecFastKeys.h"
 
 
-#if (defined(__vxworks) || defined(DEBUG)) && defined(DIRSHELL)
+#if (defined(__vxworks) || defined(DEBUG))
 
 #ifdef __vxworks
 #define optind myoptind
@@ -183,6 +184,180 @@ int	pad=0;
 	}
 }
 
+
+#define NOT_EOS(s) (*(s) && EC_DIRSEP_CHAR != *(s) && EC_BRDSEP_CHAR != *(s))
+
+/* search for the last occurrence of needle (n..e) in haystack (h) */
+static inline char *
+my_strstrn(char *h, char *n, char *e)
+{
+char *hh,*nn;
+char *rval=0;
+	do {
+		/* skip haystack until a char matches needle */
+		if (*h != *n) continue;
+		hh=h; nn=n;
+		/* try to match */
+		while (*nn==*hh) {
+			nn++; hh++;
+			/* reached end of needle -> record match
+			 * and try again
+			 */
+			if (nn >= e) rval=h;
+		}
+		/* match failed; increment haystack and try again */
+	} while ((hh=h++), NOT_EOS(hh));
+	return rval;
+}
+
+/* match a key 'k' against a 'glob pattern' 'g' which
+ * may contain '*' wildcard characters. Both of the
+ * strings may be '0' or EC_DIRSEP_CHAR terminated.
+ */
+static EcKey
+globMatch(EcKey k, EcKey g)
+{
+EcKey	endp;
+int	l;
+	/* search end of head string */
+	for (endp=g; NOT_EOS(endp) && EC_GLOB_CHAR!=*endp; endp++)
+		/* do nothing else */;
+	l=endp-g;
+	if (strncmp(k,g,l)) return 0; /* head doesn't match */
+	/* strip head */
+	k+=l; g=endp;
+	/* the string consists now of a sequence:  {<wildcard>, <stringpart>} <NULL> */
+	/* entering the while loop, *g=='*' (after *g test) */
+	while (*g) {
+		/* get start of next string element */
+		while (EC_GLOB_CHAR==*g) g++;
+		if ( ! NOT_EOS(g)) /* wildcard at end of string matches everything */
+			return g; /* (success) */
+		/* search end of string element */
+		for (endp=g; NOT_EOS(endp) && EC_GLOB_CHAR!=*endp; endp++)
+			/* do nothing else */;
+		/* search last occurrence of next string element */
+		if (!(k=my_strstrn(k,g,endp)))
+			return 0; /* no match found */
+		/* skip string element */
+		k+=(endp-g); g=endp;
+	}
+	/* are both strings consumed ? */
+	return NOT_EOS(k) ? 0 : g;
+}
+
+#define GLB_OPT_LEAVES	(1<<0)	/* apply function to leaves */
+#define GLB_OPT_DIRS	(1<<1)	/* apply function to dirs */
+#define GLB_OPT_ALL	(GLB_OPT_LEAVES | GLB_OPT_DIRS)
+
+typedef struct RGlobParmsRec_ {
+	char 		expansion[500];
+	va_list		fnargs;
+	EcErrStat	(*fn)(EcKey expansion, va_list args);
+	int		options;
+	int		count;
+} RGlobParmsRec, *RGlobParms;
+
+static EcErrStat
+rglob(EcNode n, EcKey append, EcKey globPat, RGlobParms p)
+{
+unsigned char i, *ptr;
+	if (!n || !EcNodeIsDir(n)) return EcErrNodeNotFound;
+	for (i=0; i<n->cnode->u.d.n->nels; i++) {
+		/* try to match a path element */
+		if ((ptr=globMatch(n->cnode->u.d.n->nodes[i].name, globPat))) {
+			EcErrStat	rval;
+			/* match */
+			if (*ptr) ptr++; /* skip dirsep etc. char */
+			if (*ptr) {
+				/* end of pattern not reached yet */
+				if (EcNodeIsDir(&n->u.entries[i])) {
+					int l;
+					/* append the name */
+					l=sprintf(append,"%s%c",
+						n->cnode->u.d.n->nodes[i].name,
+						EC_DIRSEP_CHAR);
+					if (rval=rglob(&n->u.entries[i], append+l, ptr, p))
+						return rval;
+				} /* else just skip it */
+			} else {
+				strcpy(append, n->cnode->u.d.n->nodes[i].name);
+				/* end of pattern reached, invoke fn */
+				rval = EcError;
+				if (EcNodeIsDir(&n->u.entries[i]) && (GLB_OPT_DIRS & p->options))
+					rval = EcErrOK;
+				else if (GLB_OPT_LEAVES & p->options)
+					rval = EcErrOK;
+
+				if ( EcErrOK==rval) {
+					p->count++;
+				       	if (rval = (*p->fn)(p->expansion, p->fnargs))
+					return rval;
+				}
+			}
+		}
+	}
+	return EcErrOK;
+}
+
+EcErrStat
+globbedDo(EcKey globPat, int options, EcErrStat (*fn)(EcKey, va_list args), ...)
+{
+EcErrStat	rval=EcErrOK;
+RGlobParmsRec	parms;
+EcKey		ptr,a;
+
+	parms.expansion[0]=0;
+	va_start(parms.fnargs,fn);
+	parms.fn=fn;
+	parms.options = options;
+	parms.count=0;
+
+	if (EcKeyIsEmpty(globPat)) {
+		/* direct invokation */
+		fn(globPat,parms.fnargs);
+		goto cleanup;
+	}
+	/* let's see if the globPat is absolute or relative */
+	if (strchr(globPat,EC_BRDSEP_CHAR)) {
+		int i;
+		EcBoardDesc bd;
+		/* board specified, loop over all boards */
+		for (i=0; bd=ecGetBoardDesc(i); i++) {
+			if ((ptr=globMatch(bd->name, globPat)) && EC_GLOB_CHAR==*ptr) {
+				a = parms.expansion;
+				a+=sprintf(a,"%s%c",bd->name,EC_GLOB_CHAR);
+				if (rval=rglob(bd->root, a, ptr, &parms))
+					goto cleanup;
+			}
+		}
+	} else {
+		a=parms.expansion;
+		if (EC_DIRSEP_CHAR==*globPat) {
+			/* absolute */
+			*(a++)='/'; *a=0;
+			rval=rglob(cwd.bd->root, a, globPat+1, &parms);
+		} else {
+			/* relative */
+			rval=rglob(cwd.n, a, globPat, &parms);
+		}
+	}
+
+	if (rval) {
+		fprintf(stderr, "Error at '%s' (%s)\n",
+				parms.expansion,
+				ecStrError(rval));
+	} else {
+		if (0==parms.count)
+			fprintf(stderr,"Warning: 0 matches found\n");
+	}
+
+cleanup:
+	va_end(parms.fnargs);
+	return rval;
+}
+ 
+
 /* print current path */
 void
 ecPwd(FILE *f)
@@ -264,8 +439,32 @@ cleanup:
 }
 
 EcErrStat
-ecPut(EcKey k, Val_t val)
+ecGetPrint(EcKey k, va_list ap)
 {
+FILE		*f=va_arg(ap,FILE*);
+Val_t		v;
+EcMenu		m;
+EcErrStat	rval;
+
+	if ((rval=ecGet(k,&v,&m))) {
+		fprintf(f,"Unable to get '%s' <%s>\n",
+				k,
+				ecStrError(rval));
+		return rval;
+	}
+	fprintf(f,"%s: ", k);
+	if (m) {
+		fprintf(f,"%s\n", m->items[v].name);
+	} else {
+		fprintf(f,"%i (0x%x)\n",v,v);
+	}
+	return EcErrOK;
+}
+
+EcErrStat
+ecPut(EcKey k, va_list ap)
+{
+Val_t		val=va_arg(ap,Val_t), rdback;
 EcNode		node;
 EcCNode		n;
 EcErrStat	e=EcErrOK;
@@ -300,6 +499,14 @@ EcBoardDesc	bd=cwd.bd;
 		val = (Val_t)arr;
 	}
 	e = ecPutValue(bd, node, val);
+
+	if (!e && ! (e=ecGet(k, &rdback, 0))) {
+		if (rdback != val) {
+			fprintf(stderr,"readback failed for %s (got %i == 0x%x)\n",
+					k, rdback);
+			e = EcError;
+		}
+	}
 cleanup:
 	if (arr) free(arr);
 	return e;
@@ -325,9 +532,11 @@ EcBoardDesc	bd=cwd.bd;
 }
 
 /* list node contents */
-void
-ecLs(EcKey k, FILE *f, int flags)
+EcErrStat
+ecLs(EcKey k, va_list ap)
 {
+FILE		*f=va_arg(ap,FILE *);
+int		flags=va_arg(ap,int);
 EcNode	   	node=cwd.n;
 EcCNode		n;
 EcBoardDesc	bd=cwd.bd;
@@ -339,7 +548,7 @@ int		i;
 	if (!EcKeyIsEmpty(k)) {
 		if (!(node=ecNodeLookup(cwd.n, k, &bd))) {
 			fprintf(stderr,"node not found\n");
-			return;
+			return EcErrNodeNotFound;
 		}
 		/* check whether it's an absolute path specification */
 		if (EC_DIRSEP_CHAR == *k || strchr(k, EC_BRDSEP_CHAR)) {
@@ -357,7 +566,7 @@ int		i;
 		if (0==i) {
 			fprintf(f,"no ECDR board found; use ecAddBoard()\n");
 		}
-		return;
+		return EcErrNodeNotFound;
 	}
 	n=node->cnode;
 	if (DIROPS_LS_RECURSE & flags) {
@@ -374,9 +583,9 @@ int		i;
 			printNodeInfo(bd, node, (void*)&o);
 		}
 	}
+	return EcErrOK;
 }
 
-#ifdef DIRSHELL
 
 #define MAXARGS		10
 #define MAXARGCHARS	200
@@ -384,147 +593,148 @@ int		i;
 void
 ecdrsh(void)
 {
+EcErrStat e;
 int ac=0;
 int ch,ai;
 char *argv[MAXARGS+1];
 
 char args[MAXARGS][MAXARGCHARS];
 
-for (ac=0; ac< MAXARGS; ac++)
-	argv[ac]=&args[ac][0];
+	for (ac=0; ac< MAXARGS; ac++)
+		argv[ac]=&args[ac][0];
 
-while (1) {
-fprintf(stderr,"#");
-fflush(stderr);
-ch=getchar();
-ac=ai=0;
-while (1) {
-	while ('\t'==ch || ' '==ch)
-		(ch=getchar());
-	if ('\n'==ch) break;
-	while ('\t'!=ch && ' '!=ch && '\n'!=ch) {
-		if (ai<MAXARGCHARS-1) args[ac][ai++]=ch;
+	while (1) {
+		fprintf(stderr,"#");
+		fflush(stderr);
 		ch=getchar();
-	}
-	
-	args[ac][ai]=0;
-	argv[ac]=&args[ac][0];
-	ai=0;
+		ac=ai=0;
+		while (1) {
+			while ('\t'==ch || ' '==ch)
+				(ch=getchar());
+			if ('\n'==ch) break;
+			while ('\t'!=ch && ' '!=ch && '\n'!=ch) {
+				if (ai<MAXARGCHARS-1) args[ac][ai++]=ch;
+				ch=getchar();
+			}
 
-	if (++ac>=10) {
-		while ('\n'!=ch) ch=getchar();
-		break;
-	}
-}
+			args[ac][ai]=0;
+			argv[ac]=&args[ac][0];
+			ai=0;
 
-if (!ac) continue;
-
-argv[ac]=0;
-
-if (!strcmp("pwd",args[0])) {
-	ecPwd(stderr);
-} else
-if (!strcmp("cd",args[0])) {
-	if (ac<2) {
-		fprintf(stderr,"dir arg needed\n");
-		continue;
-	}
-	ecCd(args[1],stderr);
-} else
-if (!strcmp("ls",args[0])) {
-	unsigned long flags=0;
-	int ch;
-	myoptind=1;
-	while ((ch=mygetopt(ac,argv,"avmk"))>=0) {
-		switch(ch) {
-			case 'v': flags|=DIROPS_LS_VERBOSE; break;
-			case 'a': flags|=DIROPS_LS_RECURSE; break;
-			case 'm': flags|=DIROPS_LS_SHOWMENU; break;
-			case 'k': flags|=DIROPS_LS_FKEYINFO; break;
-			default:  fprintf(stderr,"unknown option\n"); break;
+			if (++ac>=10) {
+				while ('\n'!=ch) ch=getchar();
+				break;
+			}
 		}
-	}
-	ecLs(EcString2Key((myoptind < ac) ? args[myoptind] : 0), stderr, flags);
-} else
+
+		if (!ac) continue;
+
+		argv[ac]=0;
+
+		if (!strcmp("pwd",args[0]))
+		{
+			ecPwd(stderr);
+		}
+		else if (!strcmp("cd",args[0]))
+		{
+			if (ac<2) {
+				fprintf(stderr,"dir arg needed\n");
+				continue;
+			}
+			ecCd(args[1],stderr);
+		}
+		else if (!strcmp("ls",args[0]))
+		{
+			unsigned long flags=0;
+			int ch;
+			myoptind=1;
+			while ((ch=mygetopt(ac,argv,"avmk"))>=0) {
+				switch(ch) {
+					case 'v': flags|=DIROPS_LS_VERBOSE; break;
+					case 'a': flags|=DIROPS_LS_RECURSE; break;
+					case 'm': flags|=DIROPS_LS_SHOWMENU; break;
+					case 'k': flags|=DIROPS_LS_FKEYINFO; break;
+					default:  fprintf(stderr,"unknown option\n"); break;
+				}
+			}
+			if (e=globbedDo(EcString2Key((myoptind < ac) ? args[myoptind] : 0), 
+				  GLB_OPT_ALL,
+				  ecLs,
+				  stderr, flags))
+				continue;
+		}
 #ifdef DEBUG
-if (!strcmp("tstopt",args[0])) {
-	int ch;
-	myoptind=0;
-	while ((ch=mygetopt(ac,argv,"avk"))) {
-		int i;
-		fprintf(stderr,"found '%c', optind is %i, argv now:\n",
-				ch, myoptind);
-		for (i=0; i<ac; i++) {
-			fprintf(stderr,"%s | ",argv[i]);
+		else if (!strcmp("tstopt",args[0]))
+		{
+			int ch;
+			myoptind=0;
+			while ((ch=mygetopt(ac,argv,"avk"))) {
+				int i;
+				fprintf(stderr,"found '%c', optind is %i, argv now:\n",
+						ch, myoptind);
+				for (i=0; i<ac; i++) {
+					fprintf(stderr,"%s | ",argv[i]);
+				}
+				fprintf(stderr,"\n");
+				if (-1==ch) break;
+			}
 		}
-		fprintf(stderr,"\n");
-		if (-1==ch) break;
-	}
-} else
 #endif
-if (!strcmp("get",args[0])) {
-	Val_t		v;
-	EcMenu		m;
-	EcErrStat	e;
-	if (ac<2) {
-		fprintf(stderr,"key arg needed\n");
-		continue;
+		else if (!strcmp("get",args[0])) {
+			Val_t		v;
+			EcMenu		m;
+			if (ac<2) {
+				fprintf(stderr,"key arg needed\n");
+				continue;
+			}
+			if (e=globbedDo(args[1],
+					GLB_OPT_LEAVES,
+					ecGetPrint,stderr)) {
+				continue;
+			}
+		}
+		else if (!strcmp("put",args[0]))
+		{
+			Val_t		v;
+			EcMenu		m;
+			char		*end;
+			if (ac<3 || (v=strtoul(args[2],&end,0), !*args[2] || *end)) {
+				fprintf(stderr,"key and value args needed\n");
+				continue;
+			}
+			if ((e=globbedDo(args[1],
+					 GLB_OPT_LEAVES,
+					 ecPut,
+					 v))) {
+				continue;
+			}
+		}
+		else if (!strcmp("prfkey",args[0]))
+		{
+			EcNode		l=0;
+			EcFKey		fk;
+			IOPtr		b=0;
+			RPrintInfoRec	pi;
+			if (ac<2 || 1!=sscanf(argv[1],"%i",&fk)) {
+				fprintf(stderr,"fastkey id arg required\n");
+				continue;
+			}
+			if (!(l=ecNodeLookupFast(cwd.n, fk))) {
+				fprintf(stderr,"Node not found!\n");
+				continue;
+			}
+			pi.clip=0; pi.bd=0;
+			rprint(l, stderr, &pi);
+			fprintf(stderr,"\n");
+		}
+		else if (!strcmp("quit",args[0]))
+		{
+			return;
+		}
+		else
+		{
+			fprintf(stderr,"unknown command '%s'\n",args[0]);
+		}
 	}
-	if (e=ecGet(args[1],&v, &m)) {
-		fprintf(stderr,"ERROR: %s\n",ecStrError(e));
-		continue;
-	}
-	fprintf(stderr,"VALUE: ");
-	if (m) {
-		fprintf(stderr,"%s\n", m->items[v].name);
-	} else {
-		fprintf(stderr,"%i (0x%x)\n",v,v);
-	}
-} else
-if (!strcmp("put",args[0])) {
-	Val_t		v;
-	EcMenu		m;
-	EcErrStat	e;
-	char		*end;
-	if (ac<3 || (v=strtoul(args[2],&end,0), !*args[2] || *end)) {
-		fprintf(stderr,"key and value args needed\n");
-		continue;
-	}
-	if ((e=ecPut(args[1],v)) || (e=ecGet(args[1],&v,&m))) {
-		fprintf(stderr,"ERROR: %s\n",ecStrError(e));
-		continue;
-	}
-	fprintf(stderr,"read back VALUE: ");
-	if (m) {
-		fprintf(stderr,"%s\n", m->items[v].name);
-	} else {
-		fprintf(stderr,"%i (0x%x)\n",v,v);
-	}
-} else
-if (!strcmp("prfkey",args[0])) {
-	EcNode		l=0;
-	EcFKey		fk;
-	IOPtr		b=0;
-	RPrintInfoRec	pi;
-	if (ac<2 || 1!=sscanf(argv[1],"%i",&fk)) {
-		fprintf(stderr,"fastkey id arg required\n");
-		continue;
-	}
-	if (!(l=ecNodeLookupFast(cwd.n, fk))) {
-		fprintf(stderr,"Node not found!\n");
-		continue;
-	}
-	pi.clip=0; pi.bd=0;
-	rprint(l, stderr, &pi);
-	fprintf(stderr,"\n");
-} else
-if (!strcmp("quit",args[0])) {
-	return;
-} else {
-	fprintf(stderr,"unknown command '%s'\n",args[0]);
-}
-}
 
 }
-#endif
-
