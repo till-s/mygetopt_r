@@ -24,7 +24,7 @@
 	sysLocalToBusAdrs(VME_AM_EXT_SUP_DATA, (void*)(localaddr), (void**)pvmeaddr)
 #elif defined(__rtems)
 #   include <bsp.h>
-#   include <bspVME.h>
+#   include <bsp/VME.h>
 #   define osdep_vme2local(vmeaddr, plocaladdr) \
 	BSP_vme2local_adrs(VME_AM_EXT_SUP_DATA, \
 		(unsigned long)(vmeaddr), \
@@ -80,7 +80,7 @@
 		intEnable(level)
 #elif defined(__rtems)
 #	define osdep_IRQ_HANDLER_PROTO(name, arg) \
-		void name(unsigned long vector, void *arg)
+		void name(void *arg, unsigned long vector)
 
 #	define osdep_intConnect(vector, handler, arg) \
 		BSP_installVME_isr( vector, handler, arg )
