@@ -1,4 +1,4 @@
-TOP=../../..
+TOP=../..
 
 include $(TOP)/configure/CONFIG
 #----------------------------------------
@@ -12,20 +12,16 @@ USR_INCLUDES += -I../$(GENINC)/
 #USR_DBDFLAGS += -I$(ECDR_HOME)
 #USR_LDFLAGS += -Wl,-M
 
-INC += drvrEcdr814.h
+INC += ecErrCodes.h drvrEcdr814.h 
 
-PROD_HOST += genMenuHdr
+TESTPROD_HOST += genMenuHdr
 genMenuHdr_SRCS += genMenuHdr.c bitMenu.c
 
-PROD_HOST += genHeaders
+TESTPROD_HOST += genHeaders
 genHeaders_SRCS += genHeaders.c ecDb.c bitMenu.c
 
-PROD_HOST += genDbd
+TESTPROD_HOST += genDbd
 genDbd_SRCS += genDbd.c ecDb.c bitMenu.c
-
-
-#caExample_LIBS	+= ca
-#caExample_LIBS	+= Com
 
 #=============================
 
@@ -49,7 +45,7 @@ drvEcdr814Tst_SRCS += drvrTst.c
 drvEcdr814Tst_LIBS += drvEcdr814
 drvEcdr814Tst_LDFLAGS += -L$(TOP)/lib/$(T_A)
 
-#===========================
+#=============================
 
 include $(TOP)/configure/RULES
 #----------------------------------------
