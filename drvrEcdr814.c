@@ -157,6 +157,21 @@ EcBoardDesc ecGetBoardDesc(int instance)
 	return boards[instance];
 }
 
+EcBoardDesc ecBoardDescLookup(EcKey k, int keyLen)
+{
+int i;
+EcBoardDesc *pbd;
+
+	if (keyLen<0) keyLen=strlen(k);
+
+	for (i=0, pbd=boards; i< nBoards; i++,pbd++) {
+		EcBoardDesc rval=*pbd;
+		if (0==strncmp(k,rval->name,keyLen) && keyLen==strlen(rval->name))
+			return rval;
+	}
+	return 0;
+}
+
 extern EcNode ecCreateDirectory(EcCNode);
 
 void

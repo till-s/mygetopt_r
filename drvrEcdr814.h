@@ -9,6 +9,7 @@
 #define EcdrNumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
 
 #define EC_DIRSEP_CHAR		'/'
+#define EC_BRDSEP_CHAR		':'
 #define EC_UPDIR_NAME		".."
 #define EC_UPDIR_NAME_LEN	2
 
@@ -187,26 +188,26 @@ addEcCNode(EcCNode n, EcCNodeList l);
  * Note: the node may not be a leaf
  *
  * If a pointer to a EcCNodeListRec is passed (arg l),
- * lookupEcCNode will record the traversed path updating
+ * ecCNodeLookup will record the traversed path updating
  * *l.
  * It is the responsibility of the caller to free 
- * list nodes allocated by lookupEcCNode.
+ * list nodes allocated by ecCNodeLookup.
  *
  * Also, on request, a fast key is returned which
  * gives a short representation of the traversed
  * path
  */
 EcCNode
-lookupEcCNode(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l);
+ecCNodeLookup(EcCNode n, EcKey key, IOPtr *p, EcCNodeList *l);
 
-/* same as lookupEcCNode but using fast keys */
+/* same as ecCNodeLookup but using fast keys */
 EcCNode
-lookupEcCNodeFast(EcCNode n, EcFKey key, IOPtr *p, EcCNodeList *l);
+ecCNodeLookupFast(EcCNode n, EcFKey key, IOPtr *p, EcCNodeList *l);
 
 
-/* lookup a node */
+/* lookup a node and a board descriptor */
 EcNode
-ecNodeLookup(EcNode n, EcKey key);
+ecNodeLookup(EcNode n, EcKey key, EcBoardDesc *pbd);
 
 /* lookup a node using fastkeys */
 EcNode
@@ -264,6 +265,11 @@ EcErrStat ecAddBoard(char *name, IOPtr baseAddress, EcBoardDesc *pdesc);
 
 /* get the board descriptor of the nth board */
 EcBoardDesc ecGetBoardDesc(int instance);
+/* keyLen denotes the number of characters that
+ * are compared
+ * if keyLen is < 0 it is internally set to strlen(k)
+ */
+EcBoardDesc ecBoardDescLookup(EcKey k, int keyLen);
 
 /* DMA stuff */
 

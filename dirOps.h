@@ -14,7 +14,7 @@ ecPwd(FILE *f);
 
 /* change working directory */
 void
-ecCd(EcKey k);
+ecCd(EcKey k, FILE *f);
 
 /* list node contents */
 

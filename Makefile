@@ -1,4 +1,4 @@
-LIBSRCS = drvrEcdr814.c regNodeOps.c dirOps.c bitMenu.c ecDb.c  ecdr814Lowlevel.c
+LIBSRCS = drvrEcdr814.c regNodeOps.c dirOps.c bitMenu.c ecDb.c  ecdr814Lowlevel.c ecLookup.c
 SRCS = drvrTst.c genHeaders.c $(LIBSRCS) genMenuHdr.c
 
 OBJS = $(SRCS:%.c=%.o)

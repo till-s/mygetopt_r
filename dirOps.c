@@ -65,23 +65,19 @@ static char		*chpt=0;
 }
 #endif
 
-extern EcCNodeRec ecRootNode;
-
 /* routines for interactive operation */
-static EcCNodeListRec top = {
-	n:	&ecRootNode,
-	p:	0
-};
+static struct {
+	EcNode		n;
+	EcBoardDesc 	bd;
+} cwd = {0};
 
-static EcCNodeList cwd=&top;
-
-static void rprint(EcCNodeList l, FILE *f, int *nchars)
+static void rprint(EcNode l, FILE *f, int *nchars)
 {
-	if (l->p) {
-		rprint(l->p,f,nchars);
+	if (l->parent) {
+		rprint(l->parent,f,nchars);
 		fputc(EC_DIRSEP_CHAR,f);
 	}
-	{ int n = fprintf(f,l->n->name);
+	{ int n = fprintf(f,l->cnode->name);
 		if (nchars) *nchars+=n;
 	}
 }
@@ -93,22 +89,22 @@ typedef struct LsOptsRec_ {
 } LsOptsRec, *LsOpts;
 
 static void
-printNodeInfo(EcCNodeList l, IOPtr p, void *arg)
+printNodeInfo(EcBoardDesc bd, EcNode l, void *arg)
 {
 LsOpts	o=(LsOpts)arg;
 FILE	*f=o->f ? o->f : stderr;
-EcCNode 	n=l->n;
+EcCNode n=l->cnode;
 EcMenu	m=0;
 EcFKey	fk;
 int	pad=0;
 
-	if (l->p) {
-		rprint(l->p,f,&pad);
+	if (l->parent) {
+		rprint(l->parent,f,&pad);
 		fputc(EC_DIRSEP_CHAR,f);
 	}
 	pad+=fprintf(f,n->name);
 
-	fk=ecNodeList2FKey(l);
+	fk=ecNode2FKey(l);
 
 	if (EcCNodeIsDir(n)) {
 		pad+=fputc(EC_DIRSEP_CHAR,f);
@@ -128,13 +124,16 @@ int	pad=0;
 				nels = n->u.r.pos2;
 				pv = memp = (Val_t*) malloc(sizeof(Val_t)*nels);
 			}
-			e=(ecGetValue(n, p,pv) || (nels>1 && ecGetRawValue(n,p,&rv)));
+			e=(ecGetValue(bd, l, pv) || (nels>1 && ecGetRawValue(bd, l, &rv)));
 			if (e) {
 				fprintf(f,"ERROR: %s",ecStrError(e));
 			} else {
+				IOPtr p = bd->base + l->u.offset;
 				if (m)
 					fprintf(f," @0x%08x: %s (ini: %s, raw: 0x%08x)",
-						p, m->items[v].name, m->items[n->u.r.inival].name, rv );
+						p,
+						m->items[v].name, m->items[n->u.r.inival].name,
+						rv );
 				else {
 					if (nels > 1) {
 						fprintf(f,"   array [%i] @0x%08x\n",nels,p);
@@ -167,7 +166,13 @@ ecPwd(FILE *f)
 {
 int nchars=0;
 	if (!f) f=stderr;
-	rprint(cwd, f, &nchars);
+
+	if (!cwd.bd) {
+		fputc(EC_DIRSEP_CHAR,f);
+	} else {
+		fprintf(f,"%s%c",cwd.bd->name,EC_BRDSEP_CHAR);
+		rprint(cwd.n, f, &nchars);
+	}
 	fputc('\n',f);
 }
 
@@ -187,16 +192,15 @@ EcErrStat
 ecGet(EcKey k, Val_t *valp, EcMenu *mp)
 {
 EcErrStat	e=EcErrOK;
-IOPtr		p=0;
 EcCNode		n;
+EcNode		node;
 EcCNodeList	l;
 int		idx;
 char		buf[100],*chpt;
 Val_t		*arr=0;
+EcBoardDesc	bd=cwd.bd;
 
 	if (mp) *mp=0;
-	for (l=cwd; l; l=l->p)
-		p+=l->n->offset;
 
 	strcpy(buf,k);
 	chpt=buf;
@@ -204,9 +208,11 @@ Val_t		*arr=0;
 		*chpt=0; /* strip [idx] */
 	}
 
-	if (!(n=lookupEcCNode(cwd->n, buf, &p, 0))) {
+	if (!(node=ecNodeLookup(cwd.n, buf, &bd))) {
 		return EcErrNodeNotFound;
 	}
+	n=node->cnode;
+
 	if (EcCNodeIsDir(n)) {
 		e = EcErrNotLeafNode;
 		goto cleanup;
@@ -217,11 +223,11 @@ Val_t		*arr=0;
 	}
 	if (EcCNodeIsArray(n)) {
 		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.pos2);
-		if (e=ecGetValue(n, p, arr))
+		if (e=ecGetValue(bd, node, arr))
 			goto cleanup;
 		*valp = arr[idx];
 	} else {
-		if (e=ecGetValue(n, p, valp))
+		if (e=ecGetValue(bd, node, valp))
 			goto cleanup;
 		if (mp) *mp = ecMenu(n->u.r.flags);
 	}
@@ -234,26 +240,24 @@ cleanup:
 EcErrStat
 ecPut(EcKey k, Val_t val)
 {
-IOPtr		p=0;
+EcNode		node;
 EcCNode		n;
 EcErrStat	e=EcErrOK;
-EcCNodeList	l;
 int		idx;
 char		buf[100],*chpt;
 Val_t		*arr=0;
+EcBoardDesc	bd=cwd.bd;
 
-	for (l=cwd; l; l=l->p)
-		p+=l->n->offset;
 	strcpy(buf,k);
 	chpt=buf;
 	if ((idx=getArrayIndex(&chpt))>=0) {
 		*chpt=0; /* strip [idx] */
 	}
 
-
-	if (!(n=lookupEcCNode(cwd->n, buf, &p, 0))) {
+	if (!(node=ecNodeLookup(cwd.n, buf, &bd))) {
 		return EcErrNodeNotFound;
 	}
+	n=node->cnode;
 	if (EcCNodeIsDir(n)) {
 		e = EcErrNotLeafNode;
 		goto cleanup;
@@ -264,12 +268,12 @@ Val_t		*arr=0;
 	}
 	if (EcCNodeIsArray(n)) {
 		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.pos2);
-		if (e=ecGetValue(n, p, arr))
+		if (e=ecGetValue(bd,node, arr))
 			goto cleanup;
 		arr[idx]=val;
 		val = (Val_t)arr;
 	}
-	e = ecPutValue(n, p, val);
+	e = ecPutValue(bd, node, val);
 cleanup:
 	if (arr) free(arr);
 	return e;
@@ -277,58 +281,55 @@ cleanup:
 
 /* change working directory */
 void
-ecCd(EcKey k)
+ecCd(EcKey k, FILE *f)
 {
-if (EcKeyIsEmpty(k))
-	return;
-if (EcKeyIsUpDir(k)) {
-	if (cwd->p) cwd = freeNodeListRec(cwd);
-} else if ( ! lookupEcCNode(cwd->n, k, 0, &cwd) ||
-	    (! EcCNodeIsDir(cwd->n) && (cwd = freeNodeListRec(cwd)) )) {
-	 /* Note: cwd=freeNodeListRec() should always be true
-	  *       we just want it to be executed if !EcCNodeIsDir()
-	  */
-	fprintf(stderr,"dirnode not found\n");
-}
+EcNode 		n;
+EcBoardDesc	bd=cwd.bd;
+
+	if (EcKeyIsEmpty(k))
+		return;
+	if ( ! (n=ecNodeLookup(cwd.n, k, &bd)) ||
+			(! EcNodeIsDir(n))) {
+		fprintf(f,"dirnode not found\n");
+	} else {
+		cwd.n=n;
+		cwd.bd=bd;
+		ecPwd(f);
+	}
 }
 
 /* list node contents */
 void
 ecLs(EcKey k, FILE *f, int flags)
 {
-EcCNodeList l=0;
-EcCNode	   n;
-IOPtr	   b=0;
-LsOptsRec  o = { f: f, flags: flags };
-	for (l=cwd; l; l=l->p)
-		b+=l->n->offset;
+EcNode	   	node=cwd.n;
+EcCNode		n;
+EcBoardDesc	bd=cwd.bd;
+LsOptsRec	o = { f: f, flags: flags };
+
 	if (!f) f=stderr;
 
-	if (EcKeyIsEmpty(k)) {
-		n=cwd->n;
-	} else {
-	if (!(n=lookupEcCNode(cwd->n, k, &b, &l))) {
-		fprintf(stderr,"node not found\n");
-		return;
+	if (!EcKeyIsEmpty(k)) {
+		if (!(node=ecNodeLookup(cwd.n, k, &bd))) {
+			fprintf(stderr,"node not found\n");
+			return;
+		}
 	}
-	}
+	n=node->cnode;
 	if (DIROPS_LS_RECURSE & flags) {
 		/* don't count cwd twice */
-		ecCNodeWalk(n, printNodeInfo, b-(n->offset), 0, (void*)&o);
+		ecNodeWalk(bd, node, printNodeInfo, (void*)&o);
 	} else {
 		if (EcCNodeIsDir(n)) {
 			int i;
-			EcCNode nn;
-			EcCNodeListRec thisdir = { p: l, 0 };
-			for (i=0,nn=n->u.d.n->nodes; i<n->u.d.n->nels; i++,nn++) {
-				thisdir.n=nn;
-				printNodeInfo(&thisdir, b + nn->offset, (void*)&o);
+			EcNode nn;
+			for (i=0,nn=node->u.entries; i<n->u.d.n->nels; i++,nn++) {
+				printNodeInfo(bd, nn, (void*)&o);
 			}
 		} else {
-			printNodeInfo(l, b, (void*)&o);
+			printNodeInfo(bd, node, (void*)&o);
 		}
 	}
-	while (l) l=freeNodeListRec(l);
 }
 
 #ifdef DIRSHELL
@@ -384,7 +385,7 @@ if (!strcmp("cd",args[0])) {
 		fprintf(stderr,"dir arg needed\n");
 		continue;
 	}
-	ecCd(args[1]);
+	ecCd(args[1],stderr);
 } else
 if (!strcmp("ls",args[0])) {
 	unsigned long flags=0;
@@ -457,20 +458,19 @@ if (!strcmp("put",args[0])) {
 	}
 } else
 if (!strcmp("prfkey",args[0])) {
-	EcCNodeList	l=0;
+	EcNode		l=0;
 	EcFKey		fk;
 	IOPtr		b=0;
 	if (ac<2 || 1!=sscanf(argv[1],"%i",&fk)) {
 		fprintf(stderr,"fastkey id arg required\n");
 		continue;
 	}
-	if (!lookupEcCNodeFast(top.n, fk, &b, &l)) {
+	if (!(l=ecNodeLookupFast(ecdr814Board, fk))) {
 		fprintf(stderr,"Node not found!\n");
 		continue;
 	}
 	rprint(l, stderr, 0);
 	fprintf(stderr,"\n");
-	while (l) l=freeNodeListRec(l);
 } else
 if (!strcmp("quit",args[0])) {
 	return;
@@ -482,8 +482,3 @@ if (!strcmp("quit",args[0])) {
 }
 #endif
 
-void
-ptop(void)
-{
-printf("n: 0x%08x, p: 0x%08x\n",top.n, top.p);
-}

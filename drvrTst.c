@@ -86,7 +86,7 @@ return 1;
 sscanf(argv[1],"%i", &key);
 fprintf(stderr,"looking for 0x%08x: ",key);
 l=0;
-n=lookupEcCNodeFast(&ecdr814CInfo,key,&b,&l);
+n=ecCNodeLookupFast(&ecdr814CInfo,key,&b,&l);
 printf("\nprinting reverse path:\n  ");
 while (l) {
 	printf("- %s",l->n->name);

@@ -58,7 +58,7 @@ switch (PAIRNO(base)) {
 		return l;	/* number < 0, must be a board level register */
 	
 }
-if (!(n=lookupEcCNodeFast(l->n, fk, 0, &l)))
+if (!(n=ecCNodeLookupFast(l->n, fk, 0, &l)))
 	goto cleanup;
 
 if (
