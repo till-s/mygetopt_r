@@ -1,24 +1,37 @@
 LIBSRCS = drvrEcdr814.c regNodeOps.c dirOps.c bitMenu.c ecDb.c  ecdr814Lowlevel.c
-SRCS = drvrTst.c genFastKeys.c $(LIBSRCS)
+SRCS = drvrTst.c genHeaders.c $(LIBSRCS)
 
 OBJS = $(SRCS:%.c=%.o)
 LIBOBJS = $(LIBSRCS:%.c=%.o)
 
 CFLAGS=-g -O2 -DDIRSHELL -DDEBUG
 
+HOSTCC = gcc
+
 drvrTst: drvrTst.o $(LIBOBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+drvr:	$(LIBOBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+fastKeyDefs.h:	ecdr814RegTable.c
+	if ! ./genHeaders -k > $@ ; then $(RM) $@; fi
+
+menuDefs.h:	bitMenu.c 
+	echo '#ifndef BIT_MENU_HEADER_DEFS_H' > $@
+	echo '#define BIT_MENU_HEADER_DEFS_H' >> $@
+	echo '/* DONT EDIT THIS FILE, IT WAS AUTOMATICALLY GENERATED */' >>$@
+	if  ! ./genHeaders -m >> $@ || ! echo '#endif' >>$@  ; then $(RM) $@; fi
+
+genHeaders: genHeaders.o ecDb.o bitMenu.o ecdrRegTable.c
 	$(CC) -o $@ $^
 
-fastKeyDefs.h:	genFastKeys ecdr814RegTable.c
-	./genFastKeys > $@
-
-genFastKeys: genFastKeys.o ecDb.o
-	$(CC) -o $@ $^
+includes: fastKeyDefs.h
 
 clean:
-	$(RM) $(OBJS) tst
+	$(RM) $(OBJS) tst fastKeyDefs.h
 
-depend: fastKeyDefs.h
+depend: includes
 	gccmakedep $(SRCS)
 # DO NOT DELETE
 drvrTst.o: drvrTst.c /usr/include/stdio.h /usr/include/features.h \
@@ -33,8 +46,8 @@ drvrTst.o: drvrTst.c /usr/include/stdio.h /usr/include/features.h \
   /usr/include/sys/select.h /usr/include/bits/select.h \
   /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h \
   /usr/include/alloca.h /usr/include/string.h /usr/include/assert.h \
-  drvrEcdr814.h ecErrCodes.h ecdrRegdefs.h
-genFastKeys.o: genFastKeys.c /usr/include/stdio.h /usr/include/features.h \
+  drvrEcdr814.h ecErrCodes.h ecdrRegdefs.h ecFastKeys.h fastKeyDefs.h
+genHeaders.o: genHeaders.c /usr/include/stdio.h /usr/include/features.h \
   /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h \
   /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stddef.h \
   /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stdarg.h \
@@ -45,8 +58,10 @@ genFastKeys.o: genFastKeys.c /usr/include/stdio.h /usr/include/features.h \
   /usr/include/endian.h /usr/include/bits/endian.h \
   /usr/include/sys/select.h /usr/include/bits/select.h \
   /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h \
-  /usr/include/alloca.h /usr/include/string.h /usr/include/assert.h \
-  drvrEcdr814.h ecErrCodes.h
+  /usr/include/alloca.h /usr/include/string.h /usr/include/unistd.h \
+  /usr/include/bits/posix_opt.h /usr/include/bits/confname.h \
+  /usr/include/getopt.h /usr/include/assert.h drvrEcdr814.h ecErrCodes.h \
+  bitMenu.h
 drvrEcdr814.o: drvrEcdr814.c /usr/include/stdio.h /usr/include/features.h \
   /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h \
   /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stddef.h \
@@ -97,6 +112,6 @@ ecDb.o: ecDb.c /usr/include/stdio.h /usr/include/features.h \
   /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h \
   /usr/include/alloca.h /usr/include/string.h /usr/include/assert.h \
   drvrEcdr814.h ecErrCodes.h ecdr814RegTable.c
-ecdr814Lowlevel.o: ecdr814Lowlevel.c ecdrRegdefs.h drvrEcdr814.h \
-  ecErrCodes.h /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stdarg.h \
+ecdr814Lowlevel.o: ecdr814Lowlevel.c drvrEcdr814.h ecErrCodes.h \
+  /usr/lib/gcc-lib/i386-redhat-linux/2.96/include/stdarg.h ecdrRegdefs.h \
   ecFastKeys.h fastKeyDefs.h

@@ -6,9 +6,10 @@
 #include "ecdrRegdefs.h"
 
 #include <assert.h>
+#include<stdio.h>
 
 static EcErrStat
-get(EcNode n, EcFKey fk, IOPtr b, Val_t *pv)
+get(EcNode n, IOPtr b, Val_t *pv)
 {
 EcErrStat rval;
 register Val_t val;
@@ -44,7 +45,7 @@ register Val_t val;
 }
 
 static EcErrStat
-put(EcNode n, EcFKey fk, IOPtr b, Val_t val)
+put(EcNode n, IOPtr b, Val_t val)
 {
 
 	if (n->u.r.flags & EcFlgReadOnly)
@@ -100,6 +101,107 @@ volatile Val_t *vp = (Val_t *)b;
 }
 
 static EcErrStat
+rdbckModePutRaw(EcNode n, IOPtr b, Val_t val)
+{
+/* TODO when writing the readback mode, we also want to check the fifo settings
+ * and we have to switch unused channels off
+ */
+return putRaw(n,b,val);
+}
+
+
+#define FIFO_OFFREG	0x40
+#define FIFOCTL_USE_OFF	(1<<5)
+#define FIFOCTL_WRI_OFF (1<<4)
+#define FIFOCTL_OFF_02  (3<<2)
+#define FIFOCTL_OFF_04	(2<<2)
+#define FIFOCTL_OFF_08  (1<<2)
+#define FIFOCTL_OFF_16	(0<<2)
+#define FIFOCTL_OFF_MSK	(3<<2)
+
+static EcErrStat
+fifoGetRaw(EcNode n, IOPtr b, Val_t *rp)
+{
+volatile Val_t *vp = (Val_t *)b;
+
+Val_t	fifoctl = RDBE(vp);
+	if (FIFOCTL_USE_OFF & fifoctl) {
+		*rp = RDBE(((unsigned long)b)+FIFO_OFFREG);
+	} else {
+		switch (fifoctl & FIFOCTL_OFF_MSK) {
+			case FIFOCTL_OFF_02: *rp = 2; break;
+			case FIFOCTL_OFF_04: *rp = 4; break;
+			case FIFOCTL_OFF_08: *rp = 8; break;
+			case FIFOCTL_OFF_16: *rp = 16; break;
+			default: *rp=0xdeadbeef; break; /* should never happen */
+		}
+	}
+	return EcErrOK;
+}
+
+
+static EcErrStat
+fifoPutRaw(EcNode n, IOPtr b, Val_t val)
+{
+volatile Val_t *vp = (Val_t *)b;
+
+Val_t	fifoctl = RDBE(vp);
+	fifoctl &= ~(FIFOCTL_USE_OFF | FIFOCTL_OFF_MSK);
+		switch (val) {
+			case 2:  fifoctl |= FIFOCTL_OFF_02; break;
+			case 4:  fifoctl |= FIFOCTL_OFF_04; break;
+			case 8:  fifoctl |= FIFOCTL_OFF_08; break;
+			case 16: fifoctl |= FIFOCTL_OFF_16; break;
+			default: fifoctl |= FIFOCTL_USE_OFF;
+				 WRBE(val, ((unsigned long)b)+FIFO_OFFREG);
+				 break;
+		}
+	fifoctl |= FIFOCTL_WRI_OFF;
+	WRBE(fifoctl,vp);
+	return EcErrOK;
+}
+
+#define BURST_COUNT_LSBREG 0x8
+#define BURST_COUNT_MSB	1
+
+static EcErrStat
+brstCntGetRaw(EcNode n, IOPtr b, Val_t *rp)
+{
+volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
+
+	/* get LSB */
+	*rp = RDBE(vp);
+
+	/* get MSB */
+	vp = (Val_t*)b;
+	if (RDBE(vp) & BURST_COUNT_MSB)
+		*rp|=(1<<16);
+	else 
+		*rp&=~(1<<16);
+	return EcErrOK;
+}
+
+
+static EcErrStat
+brstCntPutRaw(EcNode n, IOPtr b, Val_t val)
+{
+volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
+Val_t		msb;
+	/* write LSB */
+	WRBE((val&0xffff), vp);
+	/* write MSB */
+	vp = (Val_t *)b;
+	msb = RDBE(vp);
+	if (val & (1<<16))
+		msb |= BURST_COUNT_MSB;
+	else 
+		msb &= ~BURST_COUNT_MSB;
+	WRBE(msb,vp);
+	return EcErrOK;
+}
+
+
+static EcErrStat
 adGetRaw(EcNode n, IOPtr b, Val_t *rp)
 {
 volatile Val_t *vp = (Val_t *)b;
@@ -124,13 +226,14 @@ volatile Val_t *vp = (Val_t *)b;
 			if (!isreset) return EcErrAD6620NotReset;
 	}
 #endif
-	*rp = (RDBE(vp) & 0xffff) | ((RDBE(vp+1) & 0xffff)<<16);
+	/* be careful that the compiler doesn't generate an unaligned access */
+	*rp = (RDBE(vp) & 0xffff) | (((RDBE(vp+1)) & 0xffff)<<16) ;
 	return EcErrOK;
 }
 
 
 static EcErrStat
-adPutMCR(EcNode n, EcFKey fk, IOPtr b, Val_t val)
+adPutMCR(EcNode n, IOPtr b, Val_t val)
 {
 
 	if (n->u.r.flags & EcFlgReadOnly)
@@ -163,7 +266,7 @@ adPutMCR(EcNode n, EcFKey fk, IOPtr b, Val_t val)
 			/* only reset has changed (or noting at all) */
 			if ( ! (rawval&BITS_AD6620_MCR_RESET) ) {
 				/* taking it out of reset, do consistency check */
-				rval=ad6620ConsistencyCheck(fk);
+				rval=ad6620ConsistencyCheck(n, b);
 				EIEIO;
 				if (rval) return rval; /* reject inconsistent configuration */
 			}
@@ -313,17 +416,44 @@ EcNodeOpsRec ecdr814AD6620MCRNodeOps = {
 	0
 };
 
+EcNodeOpsRec ecdr814BrstCntRegNodeOps = {
+	&ecdr814RegNodeOps,
+	0,
+	0,
+	brstCntGetRaw,
+	0,
+	brstCntPutRaw
+};
+
+EcNodeOpsRec ecdr814FifoRegNodeOps = {
+	&ecdr814RegNodeOps,
+	0,
+	0,
+	fifoGetRaw,
+	0,
+	fifoPutRaw
+};
+
+EcNodeOpsRec ecdr814RdBckRegNodeOps = {
+	&ecdr814RegNodeOps,
+	0,
+	0,
+	0,
+	0,
+	rdbckModePutRaw
+};
+
 static EcNodeOps	nodeOps[8]={&ecDefaultNodeOps,};
 
 /* public routines to access leaf nodes */
 
 EcErrStat
-ecGetValue(EcNode n, EcFKey fk, IOPtr b, Val_t *vp)
+ecGetValue(EcNode n, IOPtr b, Val_t *vp)
 {
 EcNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->get);
-	return ops->get(n,fk,b,vp);
+	return ops->get(n,b,vp);
 }
 
 EcErrStat
@@ -336,12 +466,12 @@ EcNodeOps ops;
 }
 
 EcErrStat
-ecPutValue(EcNode n, EcFKey fk, IOPtr b, Val_t val)
+ecPutValue(EcNode n, IOPtr b, Val_t val)
 {
 EcNodeOps ops;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->put);
-	return ops->put(n,fk,b,val);
+	return ops->put(n,b,val);
 }
 
 EcErrStat
@@ -382,4 +512,7 @@ initRegNodeOps(void)
 	addNodeOps(&ecdr814RegNodeOps, EcReg);
 	addNodeOps(&ecdr814AD6620RegNodeOps, EcAD6620Reg);
 	addNodeOps(&ecdr814AD6620MCRNodeOps, EcAD6620MCR);
+	addNodeOps(&ecdr814BrstCntRegNodeOps, EcBrstCntReg);
+	addNodeOps(&ecdr814FifoRegNodeOps, EcFifoReg);
+	addNodeOps(&ecdr814RdBckRegNodeOps, EcRdBckReg);
 }

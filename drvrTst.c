@@ -43,7 +43,7 @@ printNodeName(EcNodeList l, IOPtr p, void* arg)
 {
 	Val_t v,rv;
 	rprintNode(l);
-	ecGetValue(l->n, ecNodeList2FKey(l), p,&v);
+	ecGetValue(l->n, p,&v);
 	ecGetRawValue(l->n,p,&rv);
 	printf(" 0x%08x: %i (ini: %i, raw: 0x%08x)\n",
 		p, v, l->n->u.r.inival, rv );
@@ -58,8 +58,8 @@ IOPtr b=0;
 EcFKey		key;
 EcNode	n;
 EcNodeList l=0;
-char *	buf=malloc(0x100000 +  ECDR_AD6620_ALIGNMENT);
-char *tstdev = (char*)((((unsigned long)buf)+ECDR_AD6620_ALIGNMENT)&~ECDR_AD6620_ALIGNMENT);
+char *	buf=malloc(0x100000 +  ECDR_BRDREG_ALIGNMENT);
+char *tstdev = (char*)((((unsigned long)buf)+ECDR_BRDREG_ALIGNMENT)&~ECDR_BRDREG_ALIGNMENT);
 
 memset(tstdev,0,0x1000);
 

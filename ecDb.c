@@ -22,12 +22,18 @@ int i,l;
 EcNode rval;
 EcKey k=*key;
 
+#ifdef KEYDEBUG
+	fprintf(stderr,"looking up %s in %s\n",k,n->name);
+#endif
 	*key = strchr(k,'.');
 	l = *key ? (*key)++ - k : strlen(k);
 
 	for (i=n->u.d.n->nels-1, rval=&n->u.d.n->nodes[i];
 		 i>=0;
 		 i--, rval--) {
+#ifdef KEYDEBUG
+	fprintf(stderr,"comparing key to %s\n",rval->name);
+#endif
 		if (0==strncmp(rval->name, k, l) && strlen(rval->name)==l)
 			return rval;
 	}
@@ -111,7 +117,7 @@ EcNodeList h=t;
 		if (!EcNodeIsDir(n)  || !(n=EcKeyLookup(n,&k)))
 			goto cleanup; /* Key not found */
 		if (l) h=addEcNode(n,h);
-#if defined(DEBUG) && 0
+#if defined(KEYDEBUG)
 		fprintf(stderr,".%s",n->name);
 #endif
 		if (p) *p+=n->offset;
@@ -178,8 +184,7 @@ walkEcNode(EcNode n, void (*fn)(EcNodeList,IOPtr,void*), IOPtr p, EcNodeList par
 		EcNode nn;
 		for (i=0, nn=n->u.d.n->nodes; i < n->u.d.n->nels; i++, nn++)
 			walkEcNode(nn, fn, p, &link, fnarg);
-	} else {
-		/* call fn for leaves */
-		fn(&link, p, fnarg);
 	}
+	/* call fn */
+	fn(&link, p, fnarg);
 }

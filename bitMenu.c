@@ -108,6 +108,7 @@ EcMenu	drvrEcdr814Menus[] = {
 	&freqRangeMenu,
 	&clkMult0_3Menu,
 	&clkMult4_7Menu,
+	0,	/* tag end of list */
 };
 
 void
@@ -117,7 +118,7 @@ EcNode n=l->n;
 if (!EcNodeIsDir(n) && EcFlgMenuMask == (n->u.r.flags & EcFlgMenuMask)) {
 	int foundMenuIndex;
 	/* uninitialized menu */
-	for (foundMenuIndex=MNumberOf(drvrEcdr814Menus)-1; foundMenuIndex>0; foundMenuIndex--) {
+	for (foundMenuIndex=MNumberOf(drvrEcdr814Menus)-2; foundMenuIndex>0; foundMenuIndex--) {
 		if (!strcmp(drvrEcdr814Menus[foundMenuIndex]->menuName, n->name))
 			break; /* found */
 	}

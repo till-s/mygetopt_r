@@ -12,52 +12,69 @@
  * directory lookup engine whenever possible.
  * However, for some lowlevel routines it's sometimes
  * necessary to directly access registers
- * (i.e. for consistency checks)
+ *
+ * Essentially, the directory is designed
+ * to work your way into register space.
+ * However, there is no way of accessing
+ * ".." which is needed by some lowlevel
+ * routines.
  */
 
-/* calculate the base address of the chip
+/* calculate some base addresses...
  * note that we must not cast this to a
  * pointer at this point (especially, a non char*)
  * because further calculations may be done
  * by the user of the macro
  *
- * also note that the AD6620BASE macro needs an
+ * also note that the XXXBASE macros needs an
  * address argument that points somewhere INTO
- * the ad6620 register space already!
+ * the register space already!
  */
 
-#define ECDR_AD6620_ALIGNMENT	(0x1fff)
+#define ECDR_BRDREG_ALIGNMENT		(0x7ffff)
+#define BRDREGBASE(addr)	(((unsigned long)(addr)) & ~ECDR_BRDREG_ALIGNMENT)
+
+#define ECDR_RXPAIR_ALIGNMENT		(0xffff)
+#define RXPAIRBASE(addr)	(((unsigned long)(addr)) & ~ECDR_RXPAIR_ALIGNMENT)
+
+#define ECDR_AD6620_ALIGNMENT		(0x1fff)
 #define AD6620BASE(addr)	(((unsigned long)(addr)) & ~ECDR_AD6620_ALIGNMENT)
 
-#define OFFS_AD6620_MCR		(0x1800)
+
+#define ECDR_AD6620_MCR_ALIGNMENT	(0x7ff)
+#define AD6620_MCRBASE(addr)	(((unsigned long)(addr)) & ~ECDR_AD6620_MCR_ALIGNMENT)
+
 #define BITS_AD6620_MCR_RESET	(1<<0)
+
+#if 0
 #define BITS_AD6620_MCR_MASK	((1<<8)-1)	/* bits that are actually used in this register */
+#endif
 
 extern EcErrStat
-ad6620ConsistencyCheck(EcFKey fk);
+ad6620ConsistencyCheck(EcNode n, IOPtr b);
 
 /* low level operations */
-#ifdef __PPC
+#if defined(__PPC) || 1
 #define EIEIO __asm__ __volatile__("eieio");
-#define RDBE(addr) (*((Val_t *)addr))
-#define WRBE(val, addr) (*((Val_t *)(addr))=(val))
+/* read big endian word; note that the 'volatile' keyword
+ * is essential. Otherwise, the compiler might generate
+ * a half word aligned access in a statement like
+ *  blah = RDBE(ptr) & 0xffff;
+ * which the ECDR doesnt like at all;
+ */
+#define RDBE(addr) (*((volatile Val_t *)(addr)))
+#define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
 #else
 #define EIEIO
-#define RDBE(addr) (*((Val_t *)(addr)))
-#define WRBE(val, addr) (*((Val_t *)(addr))=(val))
+#define RDBE(addr) (*((volatile Val_t *)(addr)))
+#define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
 #endif
 
 /* we should probably use assert( b & ECDR_AD6620_ALIGNMENT ) */
-unsigned long blahaddr;
-int		blahval;
-
 extern inline int
 ad6620IsReset(volatile void *b)
 {
-int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b)+OFFS_AD6620_MCR);
-//	blahaddr =AD6620BASE(b)+OFFS_AD6620_MCR;
-	//blahval = RDBE(blahaddr);
-	//return blahval&BITS_AD6620_MCR_RESET;
+int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620_MCRBASE(b));
 	EIEIO;
 	return rval;
 }

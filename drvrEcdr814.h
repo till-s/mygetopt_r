@@ -12,6 +12,9 @@
 typedef enum {
 	EcDir = 0,
 	EcReg,
+	EcBrstCntReg,
+	EcFifoReg,
+	EcRdBckReg,
 	EcAD6620Reg,
 	EcAD6620MCR,
 	EcCoeffList
@@ -81,6 +84,7 @@ typedef struct EcNodeRec_ {
 typedef struct EcNodeDirRec_ {
 	long		nels;
 	EcNode		nodes;
+	char		*name;
 } EcNodeDirRec, *EcNodeDir;
 
 /* for building linked lists of nodes */
@@ -92,10 +96,10 @@ typedef struct EcNodeListRec_ {
 /* access of leaf nodes */
 
 EcErrStat
-ecGetValue(EcNode n, EcFKey fkey, IOPtr b, Val_t *prval);
+ecGetValue(EcNode n, IOPtr b, Val_t *prval);
 
 EcErrStat
-ecPutValue(EcNode n, EcFKey fkey, IOPtr b, Val_t v);
+ecPutValue(EcNode n, IOPtr b, Val_t v);
 
 EcErrStat
 ecGetRawValue(EcNode n, IOPtr b, Val_t *prval);
@@ -117,9 +121,9 @@ ecPutRawValue(EcNode n, IOPtr b, Val_t v);
 typedef struct EcNodeOpsRec_ {
 	struct EcNodeOpsRec_ *super;
 	int			initialized; 	/* must be initialized to 0 */
-	EcErrStat	(*get)(EcNode n, EcFKey fk,  IOPtr b, Val_t *pv);
+	EcErrStat	(*get)(EcNode n, IOPtr b, Val_t *pv);
 	EcErrStat	(*getRaw)(EcNode n, IOPtr b, Val_t *pv);
-	EcErrStat	(*put)(EcNode n, EcFKey fk, IOPtr b, Val_t v);
+	EcErrStat	(*put)(EcNode n, IOPtr b, Val_t v);
 	EcErrStat	(*putRaw)(EcNode n, IOPtr b, Val_t v);
 } EcNodeOpsRec, *EcNodeOps;
 
@@ -167,10 +171,9 @@ lookupEcNode(EcNode n, EcKey key, IOPtr *p, EcNodeList *l);
 EcNode
 lookupEcNodeFast(EcNode n, EcFKey key, IOPtr *p, EcNodeList *l);
 
-/* execute a function for every leaf (i.e. non-directory)
- * node.
+/* execute a function for every node.
  * The function is passed a EcNodeList pointing to the 
- * leaf node and all its parent directories.
+ * node and all its parent directories.
  * For convenience, all offsets have been summed up and are
  * passed to "fn" as well. Note that the offset could
  * be calculated as 
@@ -185,5 +188,11 @@ walkEcNode(EcNode n, void (*fn)(EcNodeList l, IOPtr p, void *fnarg), IOPtr p, Ec
 /* root node of the board directory */
 extern EcNodeRec	ecdr814Board;
 extern EcNodeRec	ecdr814RawBoard;
+
+/* initialize the driver */
+void drvrEcdr814Init(void);
+
+/* register a board with the driver */
+EcErrStat ecAddBoard(char *name, IOPtr baseAddress);
 
 #endif

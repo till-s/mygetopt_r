@@ -2,8 +2,6 @@
 
 #include "drvrEcdr814.h"
 
-/* TODO: add range checking and offset */
-
 #define RO 	EcFlgReadOnly
 #define MNU	EcFlgMenuMask
 #define RST	EcFlgAD6620RStatic
@@ -47,24 +45,23 @@ static EcNodeRec ad6620RegDefs[] = {
 {	"cic5Scale",	EcAD6620Reg,	0x1838,	REGUNLMT( 0, 5,		0,	0,		0,	20,	0)},
 {	"cic5Decm",	EcAD6620Reg,	0x1840,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},
 {	"rcfScale",	EcAD6620Reg,	0x1848,	REGUNLMT( 0, 8,		0,	1,		1,	8,	-1)},
-{	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},	/* TODO: range check, limitation (speed) should be less than 32 */
+{	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},
 {	"rcf1stTap",	EcAD6620Reg,	0x1858,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
 {	"rcfNTaps",	EcAD6620Reg,	0x1860,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},	/* TODO:  wraparound? */
 };
 
-static EcNodeDirRec ad6620Dir = {EcdrNumberOf(ad6620RegDefs), ad6620RegDefs};
-static EcNodeDirRec ad6620RawDir = {EcdrNumberOf(ad6620RawRegDefs), ad6620RawRegDefs};
+static EcNodeDirRec ad6620Dir = {EcdrNumberOf(ad6620RegDefs), ad6620RegDefs, "ad6620"};
+static EcNodeDirRec ad6620RawDir = {EcdrNumberOf(ad6620RawRegDefs), ad6620RawRegDefs, "raw_ad6620"};
 
 static EcNodeRec ecdrChannelRegDefs[] = {
-{	"brstCntMSB",	EcReg,		0x0,	REGUNBIT( 0, 1,		0,	0)		},	/* TODO: special: MSB */
 {	"trigMode",	EcReg,		0x0,	REGUNION( 1, 4,		MNU,	0)		},
 {	"counterEna",	EcReg,		0x0,	REGUNBIT( 4, 5,		0,	0)		},
 {	"dualRxPara",	EcReg,		0x0,	REGUNBIT( 5, 6,		0,	0)		},
 {	"trigClear",	EcReg,		0x0,	REGUNBIT( 15, 16,	0,	0)		},
 {	"modeSelect",	EcReg,		0x4,	REGUNION( 0, 3,		MNU,	0)		},
-{	"channelID",	EcReg,		0x4,	REGUNLMT( 3, 6,		0,	0,		0,	7,	0)},	/* TODO is programmed to 0..7 */
+{	"channelID",	EcReg,		0x4,	REGUNLMT( 3, 6,		0,	0,		0,	7,	0)},
 {	"nAccum",	EcReg,		0x4,	REGUNLMT( 6, 14,	0,	1,		1,	256,	-1)},
-{	"brstCntLSB",	EcReg,		0x8,	REGUNION( 0, 16,	0,	0)		},	/* TODO special values depending on accu mode */
+{	"burstCnt",	EcBrstCntReg,	0x0,	REGUNLMT( 0, 17,	0,	0,		1,	0x20000,-1)},	/* TODO special values depending on accu mode */
 {	"totalDecm",	EcReg,		0xc,	REGUNION( 0, 14,	RO,	0)		},	/* TODO: special, depends on AD settings: they calculate from cics and rcf, check <=16383 */
 };
 
@@ -75,14 +72,13 @@ static EcNodeRec ecdrChannelRawRegDefs[] = {
 {	"rdec",		EcReg,		0xc,	REGUNION( 0, 32,	0,	0)		},
 };
 
-static EcNodeDirRec ecdrChannelDir = {EcdrNumberOf(ecdrChannelRegDefs), ecdrChannelRegDefs};
-static EcNodeDirRec ecdrChannelRawDir = {EcdrNumberOf(ecdrChannelRawRegDefs), ecdrChannelRawRegDefs};
+static EcNodeDirRec ecdrChannelDir = {EcdrNumberOf(ecdrChannelRegDefs), ecdrChannelRegDefs, "channel"};
+static EcNodeDirRec ecdrChannelRawDir = {EcdrNumberOf(ecdrChannelRawRegDefs), ecdrChannelRawRegDefs, "raw_channel"};
 
 static EcNodeRec ecdrChannelPairRegDefs[] = {
 {	"clockSame",	EcReg,		0x0,	REGUNBIT( 0, 1,		0,	1)		},	/* TODO related to clk multiplier ? */
 {	"ncoSyncEna",	EcReg,		0x0,	REGUNBIT( 1, 2,		0,	1)		},
-{	"fifoFlg",	EcReg,		0x0,	REGUNION( 2, 5,		MNU,	0)		},	/* TODO related to offset, same for all channels ; depends on rdbackMode */
-{	"fifoFlgWri",	EcReg,		0x0,	REGUNBIT( 5, 6,		0,	1)		},	/* TODO: linked to other fifo stuff */
+{	"fifoOffset",	EcFifoReg,	0x0,	REGUNLMT( 0, 16,	0,	16,		0,	0xffff,	0)},
 {	"nco0ABSync",	EcReg,		0x0,	REGUNBIT( 6, 7,		0,	0)		},
 {	"nco1ABSync",	EcReg,		0x0,	REGUNBIT( 7, 8,		0,	0)		},
 {	"rx0AReset",	EcReg,		0x0,	REGUNBIT( 8, 9,		0,	1)		},	/* reset at startup */
@@ -97,7 +93,6 @@ static EcNodeRec ecdrChannelPairRegDefs[] = {
 {	"gain1Ena",	EcReg,		0x30,	REGUNBIT( 1, 2,		0,	0)		},
 {	"gain0",	EcReg,		0x30,	REGUNLMT( 2, 7,		0,	0,		-7,	24,	7)},
 {	"gain1",	EcReg,		0x30,	REGUNLMT( 7, 12,	0,	0,		-7,	24,	7)},
-{	"fifoOffset",	EcReg,		0x40,	REGUNION( 0, 16,	0,	0)		},	/* TODO related to offset if 16 or -1, they switch it off and use fifoFlgOff  */
 {	"0A",		EcDir,		0x2000,	{ d: &ad6620Dir }		},
 {	"0B",		EcDir,		0x4000,	{ d: &ad6620Dir }		},
 {	"1A",		EcDir,		0x6000,	{ d: &ad6620Dir }		},
@@ -116,8 +111,8 @@ static EcNodeRec ecdrChannelPairRawRegDefs[] = {
 {	"1B",		EcDir,		0x8000,	{ d: &ad6620RawDir }		},
 };
 
-static EcNodeDirRec ecdrChannelPairDir = {EcdrNumberOf(ecdrChannelPairRegDefs), ecdrChannelPairRegDefs};
-static EcNodeDirRec ecdrChannelPairRawDir = {EcdrNumberOf(ecdrChannelPairRawRegDefs), ecdrChannelPairRawRegDefs};
+static EcNodeDirRec ecdrChannelPairDir = {EcdrNumberOf(ecdrChannelPairRegDefs), ecdrChannelPairRegDefs, "channelPair"};
+static EcNodeDirRec ecdrChannelPairRawDir = {EcdrNumberOf(ecdrChannelPairRawRegDefs), ecdrChannelPairRawRegDefs, "raw_channelPair"};
 
 static EcNodeRec fifoStatRegDefs[] = {
 {	"ch0",		EcReg,		0x0,	REGUNION( 0, 4,		RO,	0)		},
@@ -174,11 +169,9 @@ static EcNodeRec bit24to31RORegDefs[] = {
 {	"ch7",		EcReg,		0x0,	REGUNION( 31, 32,	RO,	0)		},
 };
 
-static EcNodeDirRec fifoStatDir = { EcdrNumberOf(fifoStatRegDefs), fifoStatRegDefs };
-static EcNodeDirRec bit0to7Dir = { EcdrNumberOf(bit0to7RegDefs), bit0to7RegDefs };
-static EcNodeDirRec bit0to7RODir = { EcdrNumberOf(bit0to7RORegDefs), bit0to7RORegDefs };
-static EcNodeDirRec bit16to23RODir = { EcdrNumberOf(bit16to23RORegDefs), bit16to23RORegDefs };
-static EcNodeDirRec bit24to31RODir = { EcdrNumberOf(bit24to31RORegDefs), bit24to31RORegDefs };
+static EcNodeDirRec fifoStatDir = { EcdrNumberOf(fifoStatRegDefs), fifoStatRegDefs, "fifoStat" };
+static EcNodeDirRec bit16to23RODir = { EcdrNumberOf(bit16to23RORegDefs), bit16to23RORegDefs, "statBitsH" };
+static EcNodeDirRec bit24to31RODir = { EcdrNumberOf(bit24to31RORegDefs), bit24to31RORegDefs, "statBitsHH" };
 
 static EcNodeRec ecdrBoardRegDefs[] = {
 {	"rdbackMode",	EcReg,		0x0,	REGUNION( 0, 4,		MNU,	0)		},	/* LR, affects fifoFlags (if !offset): 1chan: OFFSET_16, 2 channels: OFFSET 8, 4 channels: OFFSET 4, 8channels: OFFSET 2, unused channels get their syncEna and gateEna cleared  pair uses 01.0 and 23.0, 4 channels uses 01.0, 23.0, 45.0, 67.0 */
@@ -190,18 +183,12 @@ static EcNodeRec ecdrBoardRegDefs[] = {
 {	"swSync",	EcReg,		0x0,	REGUNBIT( 10, 11,	0,	0)		},
 {	"pktCntRst",	EcReg,		0x0,	REGUNBIT( 11, 12,	0,	0)		},
 {	"lclBusRst",	EcReg,		0x0,	REGUNBIT( 12, 13, 	0,	0)		},
-{	"clkMult0_3",	EcReg,		0x0,	REGUNION( 17, 19,	MNU,	0)		},	/* TODO unusual ordering, wait 15ms */
-{	"clkMult4_7",	EcReg,		0x0,	REGUNION( 19, 21,	MNU,	0)		},	/* TODO unusual ordering, wait 15ms */
+{	"clkMult0_3",	EcReg,		0x0,	REGUNION( 17, 19,	MNU,	0)		},	/* TODO wait 15ms */
+{	"clkMult4_7",	EcReg,		0x0,	REGUNION( 19, 21,	MNU,	0)		},	/* TODO wait 15ms */
 {	"fifoStat",	EcDir,		0x4,	{ d: &fifoStatDir }		},
 {	"intVec",	EcReg,		0x8,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
-{	"intMsk",	EcDir,		0xc,	{ d: &bit0to7Dir }		},
-{	"rwyTimMsk",	EcReg,		0xc,	REGUNBIT( 8, 9,		0,	0)		},
-{	"rwyAMsk",	EcReg,		0xc,	REGUNBIT( 9, 10,	0,	0)		},
-{	"rwyBMsk",	EcReg,		0xc,	REGUNBIT( 10, 11,	0,	0)		},
-{	"intStat",	EcDir,		0x10,	{ d: &bit0to7RODir }		},
-{	"rwyTimStat",	EcReg,		0x10,	REGUNION( 8, 9,		RO,	0)		},
-{	"rwyAStat",	EcReg,		0x10,	REGUNION( 9, 10,	RO,	0)		},
-{	"rwyBStat",	EcReg,		0x10,	REGUNION( 10, 11,	RO,	0)		},
+{	"intMsk",	EcReg,		0xc,	REGUNLMT( 0, 11,	0,	0,		0,	0x7ff,	0)},
+{	"intStat",	EcReg,		0x10,	REGUNLMT( 0, 11,	RO,	0,		0,	0x7ff,	0)},
 {	"pktCnt",	EcReg,		0x14,	REGUNION( 0, 24,	RO,	0)		},
 {	"adcOvrRng",	EcDir,		0x14,	{ d: &bit24to31RODir }		},
 {	"extHdr",	EcReg,		0x18,	REGUNION( 0, 16,	RO,	0)		},
@@ -217,7 +204,7 @@ static EcNodeRec ecdrBoardRawRegDefs[] = {
 {	"csr",		EcReg,		0x0,	REGUNION( 0, 32,	0,	0)		},
 {	"flags",	EcReg,		0x4,	REGUNION( 0, 32,	RO,	0)		},
 {	"intVec",	EcReg,		0x8,	REGUNION( 0, 32,	0,	0)		},
-{	"intMask",	EcReg,		0xc,	REGUNION( 0, 32,	0,	0)		},
+{	"intMsk",	EcReg,		0xc,	REGUNION( 0, 32,	0,	0)		},
 {	"intStat",	EcReg,		0x10,	REGUNION( 0, 32,	RO,	0)		},
 {	"head0",	EcReg,		0x14,	REGUNION( 0, 32,	RO,	0)		},
 {	"head1",	EcReg,		0x18,	REGUNION( 0, 32,	RO,	0)		},
@@ -227,8 +214,8 @@ static EcNodeRec ecdrBoardRawRegDefs[] = {
 {	"67",		EcDir,		0x40000,{ d: &ecdrChannelPairRawDir }	},
 };
 
-static EcNodeDirRec ecdrBoardDir = {EcdrNumberOf(ecdrBoardRegDefs), ecdrBoardRegDefs};
-static EcNodeDirRec ecdrBoardRawDir = {EcdrNumberOf(ecdrBoardRawRegDefs), ecdrBoardRawRegDefs};
+static EcNodeDirRec ecdrBoardDir = {EcdrNumberOf(ecdrBoardRegDefs), ecdrBoardRegDefs, "board"};
+static EcNodeDirRec ecdrBoardRawDir = {EcdrNumberOf(ecdrBoardRawRegDefs), ecdrBoardRawRegDefs, "raw_board"};
 
 EcNodeRec	ecdr814Board = {
 	"/",		EcDir,		0x0,	&ecdrBoardDir

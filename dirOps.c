@@ -118,7 +118,7 @@ int	pad=0;
 		while (pad++<35) fputc(' ',f);
 		if ( DIROPS_LS_VERBOSE & o->flags ) {
 			Val_t v,rv;
-			EcErrStat e=(ecGetValue(n, fk, p,&v) || ecGetRawValue(n,p,&rv));
+			EcErrStat e=(ecGetValue(n, p,&v) || ecGetRawValue(n,p,&rv));
 			if (e) {
 				fprintf(f,"ERROR: %s",ecStrError(e));
 			} else {
@@ -164,8 +164,7 @@ EcNodeList	l;
 	for (l=cwd; l; l=l->p)
 		p+=l->n->offset;
 
-	l = cwd;
-	if (!(n=lookupEcNode(cwd->n, k, &p, &l))) {
+	if (!(n=lookupEcNode(cwd->n, k, &p, 0))) {
 		return EcErrNodeNotFound;
 	}
 	if (EcNodeIsDir(n)) {
@@ -173,14 +172,12 @@ EcNodeList	l;
 		goto cleanup;
 	}
 
-	if (e=ecGetValue(n, ecNodeList2FKey(l), p, valp))
+	if (e=ecGetValue(n, p, valp))
 		goto cleanup;
 
 	if (mp) *mp = ecMenu(n->u.r.flags);
 
 cleanup:
-	while (l!=cwd)
-		l=freeNodeListRec(l);
 	return e;
 }
 
@@ -194,17 +191,15 @@ EcNodeList	l;
 	for (l=cwd; l; l=l->p)
 		p+=l->n->offset;
 
-	l = cwd;
-	if (!(n=lookupEcNode(cwd->n, k, &p, &l))) {
+	if (!(n=lookupEcNode(cwd->n, k, &p, 0))) {
 		return EcErrNodeNotFound;
 	}
 	if (EcNodeIsDir(n)) {
 		e = EcErrNotLeafNode;
 		goto cleanup;
 	}
-	e = ecPutValue(n, ecNodeList2FKey(l), p, val);
+	e = ecPutValue(n, p, val);
 cleanup:
-	while (l!=cwd) l = freeNodeListRec(l);
 	return e;
 }
 
@@ -237,7 +232,6 @@ LsOptsRec  o = { f: f, flags: flags };
 		b+=l->n->offset;
 	if (!f) f=stderr;
 
-	l = cwd;
 	if (EcKeyIsEmpty(k)) {
 		n=cwd->n;
 	} else {
@@ -262,9 +256,7 @@ LsOptsRec  o = { f: f, flags: flags };
 			printNodeInfo(l, b, (void*)&o);
 		}
 	}
-	while (l!=cwd) {
-		l=freeNodeListRec(l);
-	}
+	while (l) l=freeNodeListRec(l);
 }
 
 #ifdef DIRSHELL
@@ -325,8 +317,8 @@ if (!strcmp("cd",args[0])) {
 if (!strcmp("ls",args[0])) {
 	unsigned long flags=0;
 	int ch;
-	optind=0;
-	while ((ch=getopt(ac,argv,"avmk"))>=0) {
+	myoptind=1;
+	while ((ch=mygetopt(ac,argv,"avmk"))>=0) {
 		switch(ch) {
 			case 'v': flags|=DIROPS_LS_VERBOSE; break;
 			case 'a': flags|=DIROPS_LS_RECURSE; break;
@@ -335,7 +327,7 @@ if (!strcmp("ls",args[0])) {
 			default:  fprintf(stderr,"unknown option\n"); break;
 		}
 	}
-	ecLs(EcString2Key((optind < ac) ? args[optind] : 0), stderr, flags);
+	ecLs(EcString2Key((myoptind < ac) ? args[myoptind] : 0), stderr, flags);
 } else
 #ifdef DEBUG
 if (!strcmp("tstopt",args[0])) {
@@ -417,3 +409,9 @@ if (!strcmp("quit",args[0])) {
 
 }
 #endif
+
+void
+ptop(void)
+{
+printf("n: 0x%08x, p: 0x%08x\n",top.n, top.p);
+}
