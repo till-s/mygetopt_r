@@ -92,8 +92,8 @@ int	i;
 EcMenu	*mp;
 FILE	*f=stdout;
 
-	ecCNodeWalk(&ecdr814Board, clearVisited, 0, 0, 0);
-	ecCNodeWalk(&ecdr814Board, dbdFieldEntry, 0, 0, f);
+	ecCNodeWalk(&ecdr814CInfo, clearVisited, 0, 0, 0);
+	ecCNodeWalk(&ecdr814CInfo, dbdFieldEntry, 0, 0, f);
 
 
 return 0;

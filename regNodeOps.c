@@ -12,16 +12,17 @@
 #include<stdio.h>
 
 static EcErrStat
-get(EcCNode n, IOPtr b, Val_t *pv)
+get(EcBoardDesc bd, EcNode node, Val_t *pv)
 {
-EcErrStat rval;
-register Val_t val;
+EcCNode		n=node->cnode;
+EcErrStat 	rval;
+register 	Val_t val;
 
-	if ( (n->u.r.flags & EcFlgAD6620RStatic) && ! ad6620IsReset(b)) {
+	if ( (n->u.r.flags & EcFlgAD6620RStatic) && ! ad6620IsReset(bd,node)) {
 		/* some AD6620 registers may only be read while it is in reset state */
 		return EcErrAD6620NotReset;
 	}
-	rval=ecGetRawValue(n,b,pv);
+	rval=ecGetRawValue(bd,node,pv);
 	val = (*pv & ECREGMASK(n))>>ECREGPOS(n);
 	if (!rval && EcFlgMenuMask & n->u.r.flags) {
 		EcMenu		m=ecMenu(n->u.r.flags);
@@ -48,13 +49,14 @@ register Val_t val;
 }
 
 static EcErrStat
-put(EcCNode n, IOPtr b, Val_t val)
+put(EcBoardDesc bd, EcNode node, Val_t val)
 {
+EcCNode		n=node->cnode;
 
 	if (n->u.r.flags & EcFlgReadOnly)
 		return EcErrReadOnly;
 
-	if ((n->u.r.flags & EcFlgAD6620RWStatic) && ! ad6620IsReset(b)) {
+	if ((n->u.r.flags & EcFlgAD6620RWStatic) && ! ad6620IsReset(bd,node)) {
 		return EcErrAD6620NotReset;
 	}
 
@@ -77,34 +79,34 @@ put(EcCNode n, IOPtr b, Val_t val)
 	register EcErrStat	rval;
 	register Val_t		m = ECREGMASK(n);
 	Val_t 			rawval; 
-		if (EcErrOK != (rval = ecGetRawValue(n,b,&rawval)))
+		if (EcErrOK != (rval = ecGetRawValue(bd,node,&rawval)))
 			return rval;
 
 		rawval = (rawval & ~m) | ((val<<ECREGPOS(n))&m);
 
-		return ecPutRawValue(n,b,rawval);
+		return ecPutRawValue(bd,node,rawval);
 	}
 }
 
 static EcErrStat
-getRaw(EcCNode n, IOPtr b, Val_t *rp)
+getRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
 {
-volatile Val_t *vp = (Val_t *)b;
+volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
 	*rp = RDBE(vp);
 	return EcErrOK;
 }
 
 
 static EcErrStat
-putRaw(EcCNode n, IOPtr b, Val_t val)
+putRaw(EcBoardDesc bd, EcNode node, Val_t val)
 {
-volatile Val_t *vp = (Val_t *)b;
+volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
 	WRBE(val,vp);
 	return EcErrOK;
 }
 
 static EcErrStat
-rdbckModePutRaw(EcCNode n, IOPtr b, Val_t val)
+rdbckModePutRaw(EcBoardDesc bd, EcNode node, Val_t val)
 {
 /* TODO when writing the readback mode, we also want to check the fifo settings
  * and we have to switch unused channels off; actually, we do that
@@ -203,14 +205,14 @@ Val_t		v;
 #endif
 		
 		/* eventually write the board configuration register */
-		return putRaw(n,b,val);
+		return putRaw(bd,node,val);
 }
 
 #if 0 /* DOESNT WORK (no access to the 'parent' node and base address) */
 /* propagate the clock multiplier value to the "clockSame" bit */
 
 static EcErrStat
-clkMultPutRaw(EcCNode n, IOPtr b, Val_t rawval)
+clkMultPutRaw(EcBoardDesc bd, EcNode node, Val_t rawval)
 {
 EcErrStat	e;
 int		hiPair,i;
@@ -248,13 +250,13 @@ EcFKey		k[2];
 #define FIFOCTL_OFF_MSK	(3<<2)
 
 static EcErrStat
-fifoGetRaw(EcCNode n, IOPtr b, Val_t *rp)
+fifoGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
 {
-volatile Val_t *vp = (Val_t *)b;
+volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
 
 Val_t	fifoctl = RDBE(vp);
 	if (FIFOCTL_USE_OFF & fifoctl) {
-		*rp = RDBE(((unsigned long)b)+FIFO_OFFREG);
+		*rp = RDBE(((unsigned long)vp)+FIFO_OFFREG);
 	} else {
 		switch (fifoctl & FIFOCTL_OFF_MSK) {
 			case FIFOCTL_OFF_02: *rp = 2; break;
@@ -269,9 +271,9 @@ Val_t	fifoctl = RDBE(vp);
 
 
 static EcErrStat
-fifoPutRaw(EcCNode n, IOPtr b, Val_t val)
+fifoPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
 {
-volatile Val_t *vp = (Val_t *)b;
+volatile Val_t *vp = (Val_t *)(bd->base + node->u.offset);
 
 Val_t	fifoctl = RDBE(vp);
 	fifoctl &= ~(FIFOCTL_USE_OFF | FIFOCTL_OFF_MSK);
@@ -281,7 +283,7 @@ Val_t	fifoctl = RDBE(vp);
 			case 8:  fifoctl |= FIFOCTL_OFF_08; break;
 			case 16: fifoctl |= FIFOCTL_OFF_16; break;
 			default: fifoctl |= FIFOCTL_USE_OFF;
-				 WRBE(val, ((unsigned long)b)+FIFO_OFFREG);
+				 WRBE(val, ((unsigned long)vp)+FIFO_OFFREG);
 				 break;
 		}
 	fifoctl |= FIFOCTL_WRI_OFF;
@@ -293,9 +295,10 @@ Val_t	fifoctl = RDBE(vp);
 #define BURST_COUNT_MSB	1
 
 static EcErrStat
-brstCntGetRaw(EcCNode n, IOPtr b, Val_t *rp)
+brstCntGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
 {
-volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
+IOPtr		b=bd->base+node->u.offset;
+volatile Val_t	*vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 
 	/* get LSB */
 	*rp = RDBE(vp);
@@ -311,10 +314,12 @@ volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 
 
 static EcErrStat
-brstCntPutRaw(EcCNode n, IOPtr b, Val_t val)
+brstCntPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
 {
-volatile Val_t *vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
+IOPtr		b=bd->base+node->u.offset;
+volatile Val_t	*vp = (Val_t*)(((unsigned long)b)+BURST_COUNT_LSBREG);
 Val_t		msb;
+
 	/* write LSB */
 	WRBE((val&0xffff), vp);
 	/* write MSB */
@@ -330,9 +335,9 @@ Val_t		msb;
 
 
 static EcErrStat
-adGetRaw(EcCNode n, IOPtr b, Val_t *rp)
+adGetRaw(EcBoardDesc bd, EcNode node, Val_t *rp)
 {
-volatile Val_t *vp = (Val_t *)b;
+volatile Val_t *vp = (Val_t *)(bd->base+node->u.offset);
 
 #if 0 /* doing this in 'get' now */
 	/* filter coefficients must not be dynamically read
@@ -361,8 +366,9 @@ volatile Val_t *vp = (Val_t *)b;
 
 
 static EcErrStat
-adPutMCR(EcCNode n, IOPtr b, Val_t val)
+adPutMCR(EcBoardDesc bd, EcNode node, Val_t val)
 {
+EcCNode n=node->cnode;
 
 	if (n->u.r.flags & EcFlgReadOnly)
 		return EcErrReadOnly;
@@ -378,7 +384,7 @@ adPutMCR(EcCNode n, IOPtr b, Val_t val)
 	register EcErrStat	rval;
 	register Val_t		m = ECREGMASK(n);
 	Val_t 			orawval, rawval; 
-		if (EcErrOK != (rval = ecGetRawValue(n,b,&orawval)))
+		if (EcErrOK != (rval = ecGetRawValue(bd,node,&orawval)))
 			return rval;
 
 		/* merge old raw value and val into raw value */
@@ -394,20 +400,20 @@ adPutMCR(EcCNode n, IOPtr b, Val_t val)
 			/* only reset has changed (or noting at all) */
 			if ( ! (rawval&BITS_AD6620_MCR_RESET) ) {
 				/* taking it out of reset, do consistency check */
-				rval=ad6620ConsistencyCheck(n, b);
+				rval=ad6620ConsistencyCheck(bd,node);
 				EIEIO;
 				if (rval) return rval; /* reject inconsistent configuration */
 			}
 		}
 
-		return ecPutRawValue(n,b,rawval);
+		return ecPutRawValue(bd,node,rawval);
 	}
 }
 
 static EcErrStat
-adPutRaw(EcCNode n, IOPtr b, Val_t val)
+adPutRaw(EcBoardDesc bd, EcNode node, Val_t val)
 {
-volatile Val_t	*vp = (Val_t *)b;
+volatile Val_t	*vp = (Val_t *)(bd->base+node->u.offset);
 
 #if 0        /* this is now done by the higher level routines */
 	/* allow write attempt to "static" 
@@ -468,31 +474,33 @@ volatile Val_t	*vp = (Val_t *)b;
 }
 
 static EcErrStat
-getCoeffs(EcCNode n, IOPtr b, Val_t *v)
+getCoeffs(EcBoardDesc bd, EcNode node, Val_t *v)
 {
-volatile unsigned long *s = (volatile unsigned long *) b;
+EcCNode n=node->cnode;
+volatile unsigned long *s = (volatile unsigned long *) (bd->base+node->u.offset);
 unsigned long *d = (unsigned long *) v;
 int i;
 EcErrStat e;
 for (i=n->u.r.pos1; i < n->u.r.pos2; i++,d++,s+=2)
-	if (e=adGetRaw(n,(IOPtr)s,(Val_t*)d))
+	if (e=adGetRaw(bd,node,(Val_t*)d))
 		return e;
 return EcErrOK;
 }
 
 static EcErrStat
-putCoeffs(EcCNode n, IOPtr b, Val_t v)
+putCoeffs(EcBoardDesc bd, EcNode node, Val_t v)
 {
-unsigned long *s = (unsigned long *) v;
-volatile unsigned long *d = (volatile unsigned long *) b;
+EcCNode		n=node->cnode;
+unsigned long	*s = (unsigned long *) v;
+volatile unsigned long *d = (volatile unsigned long *) (bd->base+node->u.offset);
 int i;
 EcErrStat e;
-	if ( ! ad6620IsReset(b)) {
+	if ( ! ad6620IsReset(bd,node)) {
 		/* some coefficients may only be read while it is in reset state */
 		return EcErrAD6620NotReset;
 	}
 	for (i=n->u.r.pos1; i < n->u.r.pos2; i++,s++,d+=2)
-		if (e=adPutRaw(n,(IOPtr)d,*(Val_t*)s))
+		if (e=adPutRaw(bd, node, *(Val_t*)s))
 			return e;
 return EcErrOK;
 }
@@ -616,59 +624,61 @@ static EcCNodeOps nodeOps[10]={&ecDefaultNodeOps,};
 /* public routines to access leaf nodes */
 
 EcErrStat
-ecGetValue(EcCNode n, IOPtr b, Val_t *vp)
+ecGetValue(EcBoardDesc bd, EcNode node, Val_t *vp)
 {
-EcCNodeOps ops;
+EcCNodeOps	ops;
+EcCNode		n=node->cnode;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->get);
-	return ops->get(n,b,vp);
+	return ops->get(bd,node,vp);
 }
 
 EcErrStat
-ecGetRawValue(EcCNode n, IOPtr b, Val_t *vp)
+ecGetRawValue(EcBoardDesc bd, EcNode node, Val_t *vp)
 {
-EcCNodeOps ops;
+EcCNodeOps	ops;
+EcCNode		n=node->cnode;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->getRaw);
-	return ops->getRaw(n,b,vp);
+	return ops->getRaw(bd,node,vp);
 }
 
 EcErrStat
-ecPutValue(EcCNode n, IOPtr b, Val_t val)
+ecPutValue(EcBoardDesc bd, EcNode node, Val_t val)
 {
-EcCNodeOps ops;
+EcCNodeOps 	ops;
+EcCNode		n=node->cnode;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->put);
-	return ops->put(n,b,val);
+	return ops->put(bd,node,val);
 }
 
 EcErrStat
-ecPutRawValue(EcCNode n, IOPtr b, Val_t val)
+ecPutRawValue(EcBoardDesc bd, EcNode node, Val_t val)
 {
-EcCNodeOps ops;
+EcCNodeOps 	ops;
+EcCNode		n=node->cnode;
 	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
 	assert(ops->putRaw);
-	return ops->putRaw(n,b,val);
+	return ops->putRaw(bd,node,val);
 }
 
 EcErrStat
-ecLkupNGet(EcCNode n, EcFKey k, IOPtr base, Val_t *pv)
+ecLkupNGet(EcBoardDesc bd, EcNode node, EcFKey k, Val_t *pv)
 {
-IOPtr addr=base;
-	if (!(n=lookupEcCNodeFast(n, k, &addr, 0))) {
+	if (!(node=ecNodeLookupFast(node, k))) {
 		return EcErrNodeNotFound;
 	}
-	return ecGetValue(n, addr, pv);
+	return ecGetValue(bd, node, pv);
 }
 
 EcErrStat
-ecLkupNPut(EcCNode n, EcFKey k, IOPtr base, Val_t pv)
+ecLkupNPut(EcBoardDesc bd, EcNode node, EcFKey k, Val_t pv)
 {
-IOPtr addr=base;
-if (!(n=lookupEcCNodeFast(n, k, &addr, 0))) {
+if (!(node=ecNodeLookupFast(node, k))) {
 	return EcErrNodeNotFound;
 }
-return ecPutValue(n, addr, pv);
+return ecPutValue(bd, node, pv);
 }
 
 static void

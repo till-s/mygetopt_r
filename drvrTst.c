@@ -7,7 +7,7 @@
 #include "ecdrRegdefs.h"
 #include "ecFastKeys.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) && 0
 static EcCNodeRec ad[]={
 	{ "reg0", EcAD6620Reg, 0x0, {r : {3, 4, 0, 1} } },
 	{ "reg1", EcAD6620Reg, 0x10, {r : {14, 18, 0, 5} } },
@@ -72,7 +72,7 @@ printf("node size: %i\n",sizeof(EcCNodeRec));
 #ifdef DEBUG
 //ecCNodeWalk( &root, putIniVal, 0, 0, 0);
 //ecCNodeWalk( &root, printNodeName, 0, 0, 0);
-//ecCNodeWalk( &ecdr814RawBoard, printNodeName, &b, 0, 0);
+//ecCNodeWalk( &ecdr814RawCInfo, printNodeName, &b, 0, 0);
 ecAddBoard("B0",tstdev,0);
 #endif
 
@@ -86,7 +86,7 @@ return 1;
 sscanf(argv[1],"%i", &key);
 fprintf(stderr,"looking for 0x%08x: ",key);
 l=0;
-n=lookupEcCNodeFast(&ecdr814Board,key,&b,&l);
+n=lookupEcCNodeFast(&ecdr814CInfo,key,&b,&l);
 printf("\nprinting reverse path:\n  ");
 while (l) {
 	printf("- %s",l->n->name);

@@ -65,13 +65,13 @@ while ((ch=getopt(argc,argv,"kc")) >=0) {
 }
 switch (mode) {
 	case 'k':
-		ecCNodeWalk(&ecdr814Board, clearVisited, 0, 0, stdout);
-		ecCNodeWalk(&ecdr814Board, printFastkeyInfo, 0, 0, stdout);
+		ecCNodeWalk(&ecdr814CInfo, clearVisited, 0, 0, stdout);
+		ecCNodeWalk(&ecdr814CInfo, printFastkeyInfo, 0, 0, stdout);
 	break;
 
 	case 'c':
 		{ unsigned long total=0;
-		ecCNodeWalk(&ecdr814Board, countNodes, 0, 0, &total);
+		ecCNodeWalk(&ecdr814CInfo, countNodes, 0, 0, &total);
 		printf("Total node count is %i\n",total);
 		}
 	break;

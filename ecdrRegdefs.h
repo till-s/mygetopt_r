@@ -65,7 +65,7 @@
 #endif
 
 extern EcErrStat
-ad6620ConsistencyCheck(EcCNode n, IOPtr b);
+ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n);
 
 /* low level operations */
 #if defined(__PPC) || defined(_ARCH_PPC)
@@ -92,8 +92,9 @@ ad6620ConsistencyCheck(EcCNode n, IOPtr b);
 
 /* we should probably use assert( b & ECDR_AD6620_ALIGNMENT ) */
 extern inline int
-ad6620IsReset(volatile void *b)
+ad6620IsReset(EcBoardDesc bd, EcNode n)
 {
+IOPtr b=bd->base+n->u.offset;
 int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b) + AD6620_MCR_OFFSET);
 	EIEIO;
 	return rval;

@@ -201,10 +201,10 @@ static EcCNodeRec ecdrBoardRawRegDefs[] = {
 static EcCNodeDirRec ecdrBoardDir = {EcdrNumberOf(ecdrBoardRegDefs), ecdrBoardRegDefs, "board"};
 static EcCNodeDirRec ecdrBoardRawDir = {EcdrNumberOf(ecdrBoardRawRegDefs), ecdrBoardRawRegDefs, "raw_board"};
 
-EcCNodeRec	ecdr814Board = {
+EcCNodeRec	ecdr814CInfo = {
 	"/",		EcDir,		0x0,	&ecdrBoardDir
 };
-EcCNodeRec	ecdr814RawBoard = {
+EcCNodeRec	ecdr814RawCInfo = {
 	"/",		EcDir,		0x0,	&ecdrBoardRawDir
 };
 

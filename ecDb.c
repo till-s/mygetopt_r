@@ -31,11 +31,11 @@ int i= (((*k)&((1<<FKEY_LEN)-1))-1);
 		return n->parent;
 	if ( i<0
 #ifdef FKEYDEBUG
-		|| i > n->node->u.d.n->nels
+		|| i > n->cnode->u.d.n->nels
 #endif
 	)
 		return EMPTY_FKEY;
-	return &n->u.dir[i];
+	return &n->u.entries[i];
 }
 
 static inline EcCNode
@@ -79,14 +79,14 @@ EcKey k=*key;
 	if (l==EC_UPDIR_NAME_LEN && 0==strncmp(EC_UPDIR_NAME,k,l))
 		return n->parent;
 
-	for (i=n->node->u.d.n->nels-1, cnp=&n->node->u.d.n->nodes[i];
+	for (i=n->cnode->u.d.n->nels-1, cnp=&n->cnode->u.d.n->nodes[i];
 		 i>=0;
 		 i--, cnp--) {
 #ifdef KEYDEBUG
 	fprintf(stderr,"comparing key to %s\n",cnp->name);
 #endif
 		if (0==strncmp(cnp->name, k, l) && strlen(cnp->name)==l)
-			return &n->u.dir[i];
+			return &n->u.entries[i];
 	}
 return 0;
 }
@@ -127,7 +127,7 @@ cleanup:
 }
 
 EcNode
-ecLookupNode(EcNode n, EcKey key)
+ecNodeLookup(EcNode n, EcKey key)
 {
 EcKey k=key;
 	while ( !EcKeyIsEmpty(k) && n ) {
@@ -171,7 +171,7 @@ cleanup:
 }
 
 EcNode
-ecLookupNodeFast(EcNode n, EcFKey key)
+ecNodeLookupFast(EcNode n, EcFKey key)
 {
 EcFKey k=key;
 	while ( !EcFKeyIsEmpty(k) && n ) {
@@ -188,7 +188,7 @@ EcFKey k=key;
 #include "ecdr814RegTable.c"
 
 void
-ecCNodeWalk(EcCNode n, void (*fn)(EcCNodeList,IOPtr,void*), IOPtr p, EcCNodeList parent, void *fnarg)
+ecCNodeWalk(EcCNode n, EcCNodeWalkFn fn, IOPtr p, EcCNodeList parent, void *fnarg)
 {
 /* add ourself to the linked list of parent nodes */
 EcCNodeListRec	link={p: parent, n: n};	
@@ -208,17 +208,89 @@ EcCNodeListRec	link={p: parent, n: n};
 }
 
 void
-ecWalkNode(EcNode n, void (*fn)(EcNode n, IOPtr boardBase, void *arg), IOPtr boardBase, void *arg)
+ecNodeWalk(EcBoardDesc bd, EcNode n, EcNodeWalkFn fn, void *arg)
 {
 	/* call fn */
-	fn(n, boardBase, arg);
+	fn(bd, n, arg);
 
 	if (EcNodeIsDir(n)) {
-		int i,nels=n->node->u.d.n->nels;
+		int i,nels=n->cnode->u.d.n->nels;
 		EcNode nn;
-		for (i=0, nn=n->u.dir; i < nels; i++, nn++)
-			ecWalkNode(nn, fn, boardBase, arg);
+		for (i=0, nn=n->u.entries; i < nels; i++, nn++)
+			ecNodeWalk(bd, nn, fn, arg);
 	}
+}
+
+/* create the directory of all instances */
+
+static void
+countNodes(EcCNodeList l, IOPtr b, void *pcnt)
+{
+(*(unsigned long*)pcnt)++;
+}
+
+static void
+initEcNodes(EcNode thisNode, unsigned long offset, EcNode *pfree)
+{
+EcNode	n;
+EcCNode	cn;
+int	i;
+
+	/* 'thisNode' is a directory; create nodes
+	 * for all of its entries and initialize them
+	 */
+	
+	/* get free nodes */
+	n = (*pfree);
+	(*pfree)+=thisNode->cnode->u.d.n->nels;
+
+	/* link new list of entries into this directory */
+	thisNode->u.entries = n;
+
+	/* get CNode for this directory */
+	cn = thisNode->cnode->u.d.n->nodes;
+	/* add offset */
+	offset += cn->offset;
+
+	/* initialize the entries */
+	while (n < *pfree) {
+		n->cnode = cn;
+		n->parent = thisNode;
+		if (EcCNodeIsDir(cn)) {
+			n->u.entries = 0;
+			/* recursively create directory entries */
+			initEcNodes(n, offset, pfree);
+		} else {
+			/* directory offset + leaf node offset */
+			n->u.offset = offset + cn->offset;
+		}
+		n++;
+		cn++;
+	}
+}
+
+EcNode
+ecCreateDirectory(EcCNode classRootNode)
+{
+unsigned long	nNodes;
+EcNode		rval, free;
+
+	/* count the number of nodes */
+	nNodes=0;
+	ecCNodeWalk(classRootNode, countNodes, 0, 0, &nNodes);
+	/* allocate space */
+	rval=free=(EcNode)malloc(sizeof(*rval) * nNodes);
+	if (!rval)
+		return 0;
+	/* create the directory structure */
+	/* create root node */
+	free++;
+	rval->cnode = classRootNode;
+	rval->u.entries = 0;
+	rval->parent = 0;
+	/* recursively create all nodes */
+	initEcNodes(rval, 0, &free);
+	return rval;
 }
 
 /* Node list stuff */

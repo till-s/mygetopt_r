@@ -40,7 +40,7 @@
 static EcCNodeList
 addr2NodeList(IOPtr addr, IOPtr *pbase)
 {
-EcCNodeList	l = addEcCNode(&ecdr814Board,0);
+EcCNodeList	l = addEcCNode(&ecdr814CInfo,0);
 EcCNode		n;
 IOPtr		b;
 EcFKey		
@@ -81,14 +81,9 @@ cleanup:
 
 
 EcErrStat
-ad6620ConsistencyCheck(EcCNode n, IOPtr addr)
+ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n)
 {
-EcCNodeListRec	top={p: 0, n: &ecdr814Board};
-EcCNodeList	l=0;
-EcCNode		rx;
 EcErrStat	rval;
-IOPtr		base;
-EcFKey		fk;
 int		tmp;
 
 Val_t		mCiC2, mCiC5, mRCF, nTaps, frstTap;
@@ -98,19 +93,15 @@ Val_t		mCiC2, mCiC5, mRCF, nTaps, frstTap;
  * sum of offsets is of no use because we don't know
  * the exact path.
  */
-fk = BUILD_FKEY2( FK_board_01 , FK_channelPair_0A);
-if (!(n = lookupEcCNodeFast(&ecdr814Board, fk, 0, 0)))
+if (!(n = ecNodeLookupFast(n, FK_PARENT)))
 	return EcErrNodeNotFound;
 
-/* now get the AD6620 parameters using the correct
- * register address
- */
-base = (IOPtr)AD6620BASE(addr);
-if ( (rval=ecLkupNGet(n, FK_ad6620_cic2Decm, base, &mCiC2))  ||
-     (rval=ecLkupNGet(n, FK_ad6620_cic5Decm, base, &mCiC5))  ||
-     (rval=ecLkupNGet(n, FK_ad6620_rcfDecm,  base, &mRCF))   ||
-     (rval=ecLkupNGet(n, FK_ad6620_rcfNTaps,    base, &nTaps))  ||
-     (rval=ecLkupNGet(n, FK_ad6620_rcf1stTap,   base, &frstTap)) )
+/* now get the AD6620 parameters */
+if ( (rval=ecLkupNGet(bd, n, FK_ad6620_cic2Decm, &mCiC2))  ||
+     (rval=ecLkupNGet(bd, n, FK_ad6620_cic5Decm, &mCiC5))  ||
+     (rval=ecLkupNGet(bd, n, FK_ad6620_rcfDecm, &mRCF))   ||
+     (rval=ecLkupNGet(bd, n, FK_ad6620_rcfNTaps, &nTaps))  ||
+     (rval=ecLkupNGet(bd, n, FK_ad6620_rcf1stTap, &frstTap)) )
 	return rval;
 
 /* do a consistency check */

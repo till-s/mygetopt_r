@@ -42,6 +42,7 @@ typedef unsigned long	EcFKey; /* fastkeys */
 typedef char		*EcKey; /* string keys */
 #define EMPTY_FKEY	((EcFKey)0)
 #define UPDIR_FKEY	((EcFKey)((1<<FKEY_LEN)-1))
+#define FK_PARENT	UPDIR_FKEY
 #define EcFKeyIsEmpty(k)	(EMPTY_FKEY==(k))
 
 #define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
@@ -79,6 +80,19 @@ typedef struct EcCNodeRec_ {
 	} u;
 } EcCNodeRec, *EcCNode;
 
+/* a directory of CNodes */
+typedef struct EcCNodeDirRec_ {
+	long		nels;
+	EcCNode		nodes;
+	char		*name;
+} EcCNodeDirRec, *EcCNodeDir;
+
+/* for building linked lists of CNodes */
+typedef struct EcCNodeListRec_ {
+	struct EcCNodeListRec_	*p;		/* 'parent' node */
+	EcCNode			n;		/* 'this' node */
+} EcCNodeListRec, *EcCNodeList;
+
 #define EcCNodeIsDir(n)   (EcDir==(n)->t)
 #define EcCNodeIsArray(n) (!EcCNodeIsDir(n) && (EcFlgArray & (n)->u.r.flags))
 
@@ -92,49 +106,38 @@ typedef struct EcCNodeRec_ {
  */
 
 typedef struct EcNodeRec_ {
-	EcCNode			  node;	/* description of this node */
+	EcCNode			  cnode;	/* description of this node */
 	union		{
-		struct EcNodeRec_ *dir;	/* a list of nodes if it's a directory */
-		unsigned long	  *off; /* offset into the ECDR register space for leaf nodes */
+		struct EcNodeRec_ *entries;	/* a list of nodes if it's a directory */
+		unsigned long	  offset;  	/* offset into the ECDR register space for leaf nodes */
 	} u;
-	struct EcNodeRec_	  *parent; /* our parent directory */
+	struct EcNodeRec_	  *parent; 	/* our parent directory */
 } EcNodeRec, *EcNode;
 
-#define EcNodeIsDir(n)	(EcDir==(n)->node->t)
-#define EcNodeIsArray(n) (!EcNodeIsDir(n) && (EcFlgArray & (n)->node->u.r.flags))
+#define EcNodeIsDir(n)	(EcDir==(n)->cnode->t)
+#define EcNodeIsArray(n) (!EcNodeIsDir(n) && (EcFlgArray & (n)->cnode->u.r.flags))
 
-/* a directory of nodes */
-typedef struct EcCNodeDirRec_ {
-	long		nels;
-	EcCNode		nodes;
-	char		*name;
-} EcCNodeDirRec, *EcCNodeDir;
-
-/* for building linked lists of nodes */
-typedef struct EcCNodeListRec_ {
-	struct EcCNodeListRec_	*p;		/* 'parent' node */
-	EcCNode			n;		/* 'this' node */
-} EcCNodeListRec, *EcCNodeList;
+typedef struct EcBoardDescRec_ *EcBoardDesc;
 
 /* access of leaf nodes */
 
 EcErrStat
-ecGetValue(EcNode n, IOPtr boardBase, Val_t *prval);
+ecGetValue(EcBoardDesc bd, EcNode n, Val_t *prval);
 
 EcErrStat
-ecPutValue(EcNode n, IOPtr boardBase, Val_t v);
+ecPutValue(EcBoardDesc bd, EcNode n, Val_t v);
 
 EcErrStat
-ecGetRawValue(EcNode n, IOPtr boardBase, Val_t *prval);
+ecGetRawValue(EcBoardDesc bd, EcNode n, Val_t *prval);
 
 EcErrStat
-ecPutRawValue(EcNode n, IOPtr boardBase, Val_t v);
+ecPutRawValue(EcBoardDesc bd, EcNode n, Val_t v);
 
 EcErrStat
-ecLkupNGet(EcNode from, EcFKey fkey, IOPtr boardBase, Val_t *prval);
+ecLkupNGet(EcBoardDesc bd, EcNode from, EcFKey fkey, Val_t *prval);
 
 EcErrStat
-ecLkupNPut(EcNode from, EcFKey fkey, IOPtr boardBase, Val_t val);
+ecLkupNPut(EcBoardDesc bd, EcNode from, EcFKey fkey, Val_t val);
 
 #ifdef ECDR814_PRIVATE_IF
 /* operations on a leaf node
@@ -150,10 +153,10 @@ ecLkupNPut(EcNode from, EcFKey fkey, IOPtr boardBase, Val_t val);
 typedef struct EcCNodeOpsRec_ {
 	struct EcCNodeOpsRec_ *super;
 	int			initialized; 	/* must be initialized to 0 */
-	EcErrStat	(*get)(EcNode n, IOPtr b, Val_t *pv);
-	EcErrStat	(*getRaw)(EcNode n, IOPtr b, Val_t *pv);
-	EcErrStat	(*put)(EcNode n, IOPtr b, Val_t v);
-	EcErrStat	(*putRaw)(EcNode n, IOPtr b, Val_t v);
+	EcErrStat	(*get)(EcBoardDesc bd, EcNode n, Val_t *pv);
+	EcErrStat	(*getRaw)(EcBoardDesc bd, EcNode n, Val_t *pv);
+	EcErrStat	(*put)(EcBoardDesc bd, EcNode n, Val_t v);
+	EcErrStat	(*putRaw)(EcBoardDesc bd, EcNode n, Val_t v);
 } EcCNodeOpsRec, *EcCNodeOps;
 
 void
@@ -220,29 +223,34 @@ ecNodeLookupFast(EcNode n, EcFKey fkey);
  *           l = l->p;
  *      }
  */
-void
-walkEcCNode(EcCNode n, void (*fn)(EcCNodeList l, IOPtr p, void *fnarg), IOPtr p, EcCNodeList l, void *fnarg);
+
+typedef void (*EcCNodeWalkFn)(EcCNodeList l, IOPtr p, void *fnarg);
+typedef void (*EcNodeWalkFn) (EcBoardDesc bd, EcNode l, void *fnarg);
 
 void
-ecWalkNode(EcNode n, void (*fn)(EcNode n, IOPtr boardBase, void *fnarg), IOPtr boardBase, void *fnarg);
+ecCNodeWalk(EcCNode n, EcCNodeWalkFn fn, IOPtr p, EcCNodeList l, void *fnarg);
 
-/* root node of all boards */
-extern EcCNodeRec	ecRootNode;
+void
+ecWalkNode(EcNode n, EcNodeWalkFn fn, IOPtr boardBase, void *fnarg);
+
+
+/* node of the board info directory */
+extern EcCNodeRec	ecdr814CInfo;
+extern EcCNodeRec	ecdr814RawCInfo;
+
 /* node of the board directory */
-extern EcCNodeRec	ecdr814Board;
-extern EcCNodeRec	ecdr814RawBoard;
+extern EcNode		ecdr814Board;
 
 /* initialize the driver */
 void drvrEcdr814Init(void);
 
 typedef struct EcBoardDescRec_ {
-	EcNode		root;		/* node for this board */
+	char		*name;		/* name of this board */
 	IOPtr		base;		/* base address seen by CPU */
 /* do not use fields below here; they are 'private' to the driver */
 	IOPtr		vmeBase;	/* base address as seen on VME */
 } EcBoardDescRec;
 
-typedef struct EcBoardDescRec_ *EcBoardDesc;
 
 /* register a board with the driver
  *
