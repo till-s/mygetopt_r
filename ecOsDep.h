@@ -24,8 +24,7 @@
 	sysLocalToBusAdrs(VME_AM_EXT_SUP_DATA, (void*)(localaddr), (void**)pvmeaddr)
 #elif defined(__rtems)
 #   include <bsp.h>
-#   include <libchip/vmeUniverse.h>
-#warning "TODO: vmeUniverse should be included by bsp.h"
+#   include <bspVME.h>
 #   define osdep_vme2local(vmeaddr, plocaladdr) \
 	BSP_vme2local_adrs(VME_AM_EXT_SUP_DATA, \
 		(unsigned long)(vmeaddr), \
