@@ -5,8 +5,10 @@
  * Author: Till Straumann, <strauman@slac.stanford.edu>, 8/2001
  */
 
-#if defined(__vxworks)
+#if defined(__vxworks) || defined(vxWorks)
 #include <vxWorks.h>
+#include <vxLib.h>
+#include <sysLib.h>
 #elif defined(__rtems)
 #include <rtems.h>
 #elif defined(__linux)
@@ -16,12 +18,12 @@
 
 /* mapping of local to bus addresses */
 
-#if defined(__vxworks)
+#if defined(__vxworks) || defined(vxWorks)
 #   include <vme.h>
 #   define osdep_vme2local(vmeaddr, plocaladdr) \
-	sysBusToLocalAdrs(VME_AM_EXT_SUP_DATA, (void*)(vmeaddr), (void**)plocaladdr)
+	sysBusToLocalAdrs(VME_AM_EXT_SUP_DATA, (char*)(vmeaddr), (char**)plocaladdr)
 #   define osdep_local2vme(localaddr, pvmeaddr) \
-	sysLocalToBusAdrs(VME_AM_EXT_SUP_DATA, (void*)(localaddr), (void**)pvmeaddr)
+	sysLocalToBusAdrs(VME_AM_EXT_SUP_DATA, (char*)(localaddr), (char**)pvmeaddr)
 #elif defined(__rtems)
 #   include <bsp.h>
 #   include <bsp/VME.h>
@@ -42,7 +44,7 @@
 
 /* probing of memory addresses */
 
-#if defined(__vxworks)
+#if defined(__vxworks) || defined(vxWorks)
 
 #   define osdep_memProbe(addr, writeNotRead, nBytes, pVal) \
 	vxMemProbe((void*)(addr),(writeNotRead),(nBytes),(void*)(pVal))
@@ -66,7 +68,7 @@
 
 /* interrupt handlers */
 
-#if defined(__vxworks)
+#if defined(__vxworks) || defined(vxWorks)
 #include <intLib.h>
 #include <iv.h>
 #	define osdep_IRQ_HANDLER_PROTO(name, arg) \

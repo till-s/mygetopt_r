@@ -14,6 +14,10 @@ main(int argc, char ** argv)
 {
 int	i;
 EcMenu	*mp;
+char	*name="ecdr814Menus.dbd";
+
+	if (argc>1)
+		name=argv[1];
 	for ( mp=drvrEcdr814Menus+1; *mp; mp++ ) {
 		printf("#define EC_MENU_%s	%i\n",
 				(*mp)->menuName, mp-drvrEcdr814Menus);
@@ -30,7 +34,7 @@ EcMenu	*mp;
 				(*mp)->items[i].bitval);
 		}
 	}
-	return menudbd("ecdr814Menus.dbd");
+	return menudbd(name);
 }
 
 static int
