@@ -62,7 +62,7 @@ static EcCNodeRec ad6620RegDefs[] = {
 	/* 						start,end		value		*/
 {	"rcfCoeffs",	EcAD6620Reg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
 {	"state",	EcAD6620MCR,	0x1800,	REGUNBIT( 0, 1,		Mro,	1)		},	/* init: leave in reset */
-{	"realCmplx",	EcAD6620Reg,	0x1800,	REGUNION( 1, 3,		RWST|Mrc,2)		},	/* treat bits other than reset as ordinary RWST regs */
+{	"realCmplx",	EcAD6620Reg,	0x1800,	REGUNION( 1, 3,		RWST|Mrc,0)		},	/* treat bits other than reset as ordinary RWST regs */
 {	"syncMaster",	EcAD6620Reg,	0x1800,	REGUNLMT( 3, 8,		RWST,	0,		0,	1,	0)},
 {	"ncoBypass",	EcAD6620Reg,	0x1808,	REGUNBIT( 0, 1,		RWST,	0)		},	/* off */
 {	"phaseDith",	EcAD6620Reg,	0x1808,	REGUNBIT( 1, 2,		RWST,	0)		},	/* off */
