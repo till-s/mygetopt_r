@@ -53,6 +53,7 @@ static void
 initEcNodes(EcNode thisNode, unsigned long offset, EcNode *pfree)
 {
 EcNode	n;
+EcNode	end;
 EcCNode	cn;
 int	i;
 
@@ -63,6 +64,10 @@ int	i;
 	/* get free nodes */
 	n = (*pfree);
 	(*pfree)+=thisNode->cnode->u.d.n->nels;
+	/* store actual value; pfree is modified by
+	 * recursive calls to initEcNodes...
+	 */
+	end = *pfree;
 
 	/* link new list of entries into this directory */
 	thisNode->u.entries = n;
@@ -70,10 +75,10 @@ int	i;
 	/* get CNode for this directory */
 	cn = thisNode->cnode->u.d.n->nodes;
 	/* add offset */
-	offset += cn->offset;
+	offset += thisNode->cnode->offset;
 
 	/* initialize the entries */
-	while (n < *pfree) {
+	while (n < end) {
 		n->cnode = cn;
 		n->parent = thisNode;
 		if (EcCNodeIsDir(cn)) {

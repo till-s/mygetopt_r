@@ -47,7 +47,7 @@ typedef char		*EcKey; /* string keys */
 #define EcFKeyIsEmpty(k)	(EMPTY_FKEY==(k))
 
 #define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
-#define EcKeyIsEmpty(k)		((k)==0)
+#define EcKeyIsEmpty(k)		(0==(k) || 0==*(k))
 #define EcString2Key(k)		(k)
 
 #define	ECDR814_NUM_RCF_COEFFS	4 /* testing */
@@ -250,6 +250,7 @@ typedef struct EcBoardDescRec_ {
 	IOPtr		base;		/* base address seen by CPU */
 /* do not use fields below here; they are 'private' to the driver */
 	IOPtr		vmeBase;	/* base address as seen on VME */
+	EcNode		root;		/* root node of database */
 } EcBoardDescRec;
 
 

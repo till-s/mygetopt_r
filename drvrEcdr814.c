@@ -48,7 +48,7 @@ EcErrStat
 ecAddBoard(char *name, IOPtr vme_b, EcBoardDesc *pdesc)
 {
 EcErrStat	rval=EcError;
-EcCNodeDir	bd=&boardDirectory;
+int		k;
 EcNode		n;
 IOPtr		b;
 Val_t		v;
@@ -78,22 +78,28 @@ Val_t		v;
 	assert( RDBE(&v) == SOME_VALUE );
 #endif
 	/* allocate and initialize board descriptor entry */
-	if (EcdrNumberOf(boards)<=nBoards) {
+	if (EcdrNumberOf(boards)<=nBoards+1) {
 		rval=EcErrOutOfRange;
 		goto cleanup;
 	}
 
+	/* insert the new board before the old 'raw' boards */
+	for (k=nBoards; k>nBoards/2; k--)
+		boards[k]=boards[k-1];
+	nBoards++;
 
-	boards[nBoards] = (EcBoardDesc)malloc(sizeof(EcBoardDescRec));
-	boards[nBoards]->name = name; /* probably, we should make a copy here */
-	boards[nBoards]->base = b;
-	boards[nBoards]->vmeBase = vme_b;
+
+	boards[k] = (EcBoardDesc)malloc(sizeof(EcBoardDescRec));
+	boards[k]->name = name; /* probably, we should make a copy here */
+	boards[k]->base = b;
+	boards[k]->vmeBase = vme_b;
+	boards[k]->root = ecdr814Board;
 
 	/* initialize */
 	/* raw initialization sets pretty much everything to zero */
-	ecNodeWalk( & boards[nBoards], ecdr814RawBoard, putIniVal, 0);
+	ecNodeWalk(boards[k], ecdr814RawBoard, putIniVal, 0);
 	/* now set individual bits as defined in the board table */
-	ecNodeWalk( & boards[nBoards], ecdr814Board, putIniVal, 0);
+	ecNodeWalk(boards[k], ecdr814Board, putIniVal, 0);
 
 	/* write channel ids */
 	{
@@ -110,35 +116,22 @@ Val_t		v;
 		};
 		for (i=0; i < 8; i++) {
 			assert ( (n = ecNodeLookupFast(ecdr814Board, fk[i]) )
-				 && (EcErrOK == ecPutValue(boards[nBoards],n, i)) );
+				 && (EcErrOK == ecPutValue(boards[k],n, i)) );
 		}
 	}
 	/* TODO other initialization (VME, RW...) */
 
-#if 0
-	/* on success, create directory entry */
-	bd->nels+=2;
-	assert(bd->nodes = (EcCNode) realloc(bd->nodes,
-						sizeof((*(bd->nodes))) * bd->nels));
-
-	n=bd->nodes+(bd->nels-2);
-	n->name=name;
-	n->offset=(unsigned long)b;
-	n->t = EcDir;
-	n->u.d.n = ecdr814CInfo.u.d.n;
-
-	n++;
-
-	/* create board entry for access to raw registers */
-	n->name=malloc(strlen(name)+5);
-	n->offset=(unsigned long)b;
-	n->t = EcDir;
-	n->u.d.n = ecdr814RawCInfo.u.d.n;
-	sprintf(n->name,"%s_raw",name);
-#endif
 	if (pdesc) {
-		*pdesc=boards[nBoards];
+		*pdesc=boards[k];
 	}
+
+	/* initialize descriptor for raw board */
+	boards[nBoards] = (EcBoardDesc)malloc(sizeof(EcBoardDescRec));
+	boards[nBoards]->name = malloc(strlen(name) + 5);
+	sprintf(boards[nBoards]->name,"%s_Raw",name);
+	boards[nBoards]->base = b;
+	boards[nBoards]->vmeBase = vme_b;
+	boards[nBoards]->root = ecdr814RawBoard;
 	nBoards++;
 
 

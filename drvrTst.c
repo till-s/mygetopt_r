@@ -78,7 +78,7 @@ ecAddBoard("B0",tstdev,0);
 
 if (argc<2)
 #ifdef DIRSHELL
-{ dirshell(); exit(0); }
+{ ecdrsh(); exit(0); }
 #else
 return 1;
 #endif

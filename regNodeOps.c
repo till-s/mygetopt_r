@@ -476,31 +476,37 @@ volatile Val_t	*vp = (Val_t *)(bd->base+node->u.offset);
 static EcErrStat
 getCoeffs(EcBoardDesc bd, EcNode node, Val_t *v)
 {
-EcCNode n=node->cnode;
-volatile unsigned long *s = (volatile unsigned long *) (bd->base+node->u.offset);
-unsigned long *d = (unsigned long *) v;
-int i;
-EcErrStat e;
-for (i=n->u.r.pos1; i < n->u.r.pos2; i++,d++,s+=2)
-	if (e=adGetRaw(bd,node,(Val_t*)d))
-		return e;
-return EcErrOK;
+EcCNode		n=node->cnode;
+EcNodeRec	index = *node;
+unsigned long	*d = (unsigned long *) v;
+int		i;
+EcErrStat	e;
+	/* use a dummy node to pass an increasing index to adGetRaw
+ 	 * the destination address must be stepped in 8-byte intervals.
+ 	 */
+	for (i=n->u.r.pos1; i < n->u.r.pos2; i++,d++,index.u.offset+=8)
+		if (e=adGetRaw(bd,&index,(Val_t*)d))
+			return e;
+	return EcErrOK;
 }
 
 static EcErrStat
 putCoeffs(EcBoardDesc bd, EcNode node, Val_t v)
 {
 EcCNode		n=node->cnode;
+EcNodeRec	index = *node;
 unsigned long	*s = (unsigned long *) v;
-volatile unsigned long *d = (volatile unsigned long *) (bd->base+node->u.offset);
-int i;
-EcErrStat e;
+int		i;
+EcErrStat	e;
 	if ( ! ad6620IsReset(bd,node)) {
 		/* some coefficients may only be read while it is in reset state */
 		return EcErrAD6620NotReset;
 	}
-	for (i=n->u.r.pos1; i < n->u.r.pos2; i++,s++,d+=2)
-		if (e=adPutRaw(bd, node, *(Val_t*)s))
+	/* use a dummy node to pass an increasing index to adGetRaw
+ 	 * the destination address must be stepped in 8-byte intervals.
+ 	 */
+	for (i=n->u.r.pos1; i < n->u.r.pos2; i++,s++,index.u.offset+=8)
+		if (e=adPutRaw(bd, &index, *(Val_t*)s))
 			return e;
 return EcErrOK;
 }

@@ -66,27 +66,42 @@ static char		*chpt=0;
 #endif
 
 /* routines for interactive operation */
+
 static struct {
 	EcNode		n;
 	EcBoardDesc 	bd;
 } cwd = {0};
 
-static void rprint(EcNode l, FILE *f, int *nchars)
-{
-	if (l->parent) {
-		rprint(l->parent,f,nchars);
-		fputc(EC_DIRSEP_CHAR,f);
-	}
-	{ int n = fprintf(f,l->cnode->name);
-		if (nchars) *nchars+=n;
-	}
-}
-
 
 typedef struct LsOptsRec_ {
 	FILE		*f;
 	unsigned long	flags;
+	EcNode		pathRelative;
 } LsOptsRec, *LsOpts;
+
+typedef struct RprintInfoRec_ {
+	EcNode		clip;
+	int		pos;
+	EcBoardDesc	bd;
+} RPrintInfoRec, *RPrintInfo;
+
+static void
+rprint(EcNode l, FILE *f, RPrintInfo info)
+{
+int n;
+	if ( l == info->clip ) return;
+
+	if (l->parent) {
+		rprint(l->parent,f,info);
+		fputc(EC_DIRSEP_CHAR,f);
+		n = fprintf(f,l->cnode->name);
+	} else {
+		/* print board name */
+		n = info->bd ? fprintf(f,"%s%c",info->bd->name,EC_BRDSEP_CHAR) : 0;
+	}
+	info->pos+=n;
+}
+
 
 static void
 printNodeInfo(EcBoardDesc bd, EcNode l, void *arg)
@@ -98,9 +113,17 @@ EcMenu	m=0;
 EcFKey	fk;
 int	pad=0;
 
-	if (l->parent) {
-		rprint(l->parent,f,&pad);
+	if (l->parent && l->parent!=o->pathRelative) {
+		RPrintInfoRec pi;
+
+		pi.clip = o->pathRelative;
+		pi.bd	 = bd;
+		pi.pos  = pad;
+
+		rprint(l->parent,f,&pi);
 		fputc(EC_DIRSEP_CHAR,f);
+	
+		pad = pi.pos;
 	}
 	pad+=fprintf(f,n->name);
 
@@ -124,7 +147,7 @@ int	pad=0;
 				nels = n->u.r.pos2;
 				pv = memp = (Val_t*) malloc(sizeof(Val_t)*nels);
 			}
-			e=(ecGetValue(bd, l, pv) || (nels>1 && ecGetRawValue(bd, l, &rv)));
+			e=(ecGetValue(bd, l, pv) || (1==nels && ecGetRawValue(bd, l, &rv)));
 			if (e) {
 				fprintf(f,"ERROR: %s",ecStrError(e));
 			} else {
@@ -168,10 +191,13 @@ int nchars=0;
 	if (!f) f=stderr;
 
 	if (!cwd.bd) {
-		fputc(EC_DIRSEP_CHAR,f);
+		fprintf(f,"<no path, use 'ls/cd'>\n");
 	} else {
-		fprintf(f,"%s%c",cwd.bd->name,EC_BRDSEP_CHAR);
-		rprint(cwd.n, f, &nchars);
+		RPrintInfoRec pi;
+		pi.clip=0;
+		pi.bd  =cwd.bd;
+		pi.pos =0;
+		rprint(cwd.n, f, &pi);
 	}
 	fputc('\n',f);
 }
@@ -305,7 +331,8 @@ ecLs(EcKey k, FILE *f, int flags)
 EcNode	   	node=cwd.n;
 EcCNode		n;
 EcBoardDesc	bd=cwd.bd;
-LsOptsRec	o = { f: f, flags: flags };
+LsOptsRec	o = { f: f, flags: flags, pathRelative: cwd.n };
+int		i;
 
 	if (!f) f=stderr;
 
@@ -314,6 +341,23 @@ LsOptsRec	o = { f: f, flags: flags };
 			fprintf(stderr,"node not found\n");
 			return;
 		}
+		/* check whether it's an absolute path specification */
+		if (EC_DIRSEP_CHAR == *k || strchr(k, EC_BRDSEP_CHAR)) {
+			/* absolute path */
+			o.pathRelative = 0;
+		} /* pre-initialized: path relative to cwd */
+	}
+	if (!node) {
+		/* list all boards */
+		i=0;
+		while ((bd=ecGetBoardDesc(i))) {
+			fprintf(f,"%s%c\n",bd->name,EC_BRDSEP_CHAR);
+			i++;
+		}
+		if (0==i) {
+			fprintf(f,"no ECDR board found; use ecAddBoard()\n");
+		}
+		return;
 	}
 	n=node->cnode;
 	if (DIROPS_LS_RECURSE & flags) {
@@ -338,7 +382,7 @@ LsOptsRec	o = { f: f, flags: flags };
 #define MAXARGCHARS	200
 
 void
-dirshell(void)
+ecdrsh(void)
 {
 int ac=0;
 int ch,ai;
@@ -461,15 +505,17 @@ if (!strcmp("prfkey",args[0])) {
 	EcNode		l=0;
 	EcFKey		fk;
 	IOPtr		b=0;
+	RPrintInfoRec	pi;
 	if (ac<2 || 1!=sscanf(argv[1],"%i",&fk)) {
 		fprintf(stderr,"fastkey id arg required\n");
 		continue;
 	}
-	if (!(l=ecNodeLookupFast(ecdr814Board, fk))) {
+	if (!(l=ecNodeLookupFast(cwd.n, fk))) {
 		fprintf(stderr,"Node not found!\n");
 		continue;
 	}
-	rprint(l, stderr, 0);
+	pi.clip=0; pi.bd=0;
+	rprint(l, stderr, &pi);
 	fprintf(stderr,"\n");
 } else
 if (!strcmp("quit",args[0])) {
