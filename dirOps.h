@@ -22,6 +22,7 @@ ecCd(EcKey k);
 #define DIROPS_LS_RECURSE	(1<<0)
 #define DIROPS_LS_VERBOSE	(1<<1)
 #define DIROPS_LS_SHOWMENU	(1<<2)
+#define DIROPS_LS_FKEYINFO	(1<<3)
 
 void
 ecLs(EcKey k, FILE *f, int flags);

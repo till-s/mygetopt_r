@@ -3,6 +3,8 @@
 #ifndef DRV_ECDR814_TILL_H
 #define DRV_ECDR814_TILL_H
 
+#include "ecErrCodes.h"
+
 /* number of array elements */
 #define EcdrNumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
 
@@ -11,6 +13,7 @@ typedef enum {
 	EcDir = 0,
 	EcReg,
 	EcAD6620Reg,
+	EcAD6620MCR,
 	EcCoeffList
 } EcNodeType;
 
@@ -22,28 +25,19 @@ typedef enum {
 	EcFlgAD6620RWStatic = (1<<11),	/* may only write if in reset state */
 } EcRegFlags;
 
-typedef enum {
-	EcErrOK = 0,
-	EcError = -1,
-	EcErrReadOnly = -2,
-	EcErrNoMem = -3,
-	EcErrNoDevice = -4,
-	EcErrNodeNotFound = -5,
-	EcErrNotLeafNode = -6,
-	EcErrAD6620NotReset = -7,	/* AD6620 writes only allowed while reset */
-	EcErrOutOfRange = -8		/* Value out of range */
-	/* if adding error codes, ecStrError must be updated */
-} EcErrStat;
-
-/* convert error code to string
- * NOTE: return value points to a
- * static area which must not be modified 
- */
-char *
-ecStrError(EcErrStat e);
-
 /* pointer to physical device registers */
 typedef volatile unsigned char *IOPtr;
+typedef unsigned long Val_t;
+
+#define FKEY_LEN	5	/* bits */
+typedef unsigned long	EcFKey; /* fastkeys */
+typedef char		*EcKey; /* string keys */
+#define EMPTY_FKEY	((EcFKey)0)
+
+#define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
+#define EcKeyIsEmpty(k)	((k)==0)
+#define EcString2Key(k)		(k)
+
 
 /* struct describing a node
  * This can be a description of 
@@ -54,7 +48,7 @@ typedef volatile unsigned char *IOPtr;
 typedef struct EcNodeRec_ {
 	char			*name;
 #if 0
-	EcNodeType		t : 4;
+	EcNodeType	t : 4;
 	unsigned long	offset: 28;
 #else
 	EcNodeType	t;
@@ -69,6 +63,7 @@ typedef struct EcNodeRec_ {
 			unsigned char		pos2;
 			EcRegFlags 		flags : 16;
 			unsigned long		inival;
+			unsigned long   	min,max,adj;
 		} r;					/* if a Reg or AD6620Reg */
 		struct {
 			unsigned char			size;
@@ -76,7 +71,9 @@ typedef struct EcNodeRec_ {
 	} u;
 } EcNodeRec, *EcNode;
 
-#define REGUNION( pos1, pos2, flags, inival) { r: (pos1), (pos2), (flags), (inival) }
+#define REGUNLMT( pos1, pos2, flags, inival, min, max, adj) { r: (pos1), (pos2), (flags), (inival), (min), (max), (adj) }
+#define REGUNION( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 0, 0 )
+#define REGUNBIT( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 1, 0 )
 
 #define EcNodeIsDir(n) (EcDir==(n)->t)
 
@@ -88,18 +85,17 @@ typedef struct EcNodeDirRec_ {
 
 /* for building linked lists of nodes */
 typedef struct EcNodeListRec_ {
-	struct EcNodeListRec_	*p;
-	EcNode			n;
+	struct EcNodeListRec_	*p;		/* 'parent' node */
+	EcNode			n;		/* 'this' node */
 } EcNodeListRec, *EcNodeList;
 
 /* access of leaf nodes */
-typedef unsigned long Val_t;
 
 EcErrStat
-ecGetValue(EcNode n, IOPtr b, Val_t *prval);
+ecGetValue(EcNode n, EcFKey fkey, IOPtr b, Val_t *prval);
 
 EcErrStat
-ecPutValue(EcNode n, IOPtr b, Val_t v);
+ecPutValue(EcNode n, EcFKey fkey, IOPtr b, Val_t v);
 
 EcErrStat
 ecGetRawValue(EcNode n, IOPtr b, Val_t *prval);
@@ -121,9 +117,9 @@ ecPutRawValue(EcNode n, IOPtr b, Val_t v);
 typedef struct EcNodeOpsRec_ {
 	struct EcNodeOpsRec_ *super;
 	int			initialized; 	/* must be initialized to 0 */
-	EcErrStat	(*get)(EcNode n, IOPtr b, Val_t *pv);
+	EcErrStat	(*get)(EcNode n, EcFKey fk,  IOPtr b, Val_t *pv);
 	EcErrStat	(*getRaw)(EcNode n, IOPtr b, Val_t *pv);
-	EcErrStat	(*put)(EcNode n, IOPtr b, Val_t v);
+	EcErrStat	(*put)(EcNode n, EcFKey fk, IOPtr b, Val_t v);
 	EcErrStat	(*putRaw)(EcNode n, IOPtr b, Val_t v);
 } EcNodeOpsRec, *EcNodeOps;
 
@@ -131,21 +127,6 @@ void
 addNodeOps(EcNodeOps ops, EcNodeType type);
 
 extern EcNodeOpsRec ecDefaultNodeOps;
-#endif
-
-/* chose key implementation (integers vs. strings) */
-#ifdef INTKEYS
-
-typedef unsigned long	EcKey;
-#define EcKeyIsEmpty(k)	((k)==0)
-
-#else
-
-typedef char *EcKey;
-#define EcKeyIsUpDir(key)	(0==strcmp(key,".."))
-#define EcKeyIsEmpty(k)	((k)==0)
-#define EcString2Key(k)	(k)
-
 #endif
 
 /* node list record allocation primitives */
@@ -174,9 +155,17 @@ addEcNode(EcNode n, EcNodeList l);
  * *l.
  * It is the responsibility of the caller to free 
  * list nodes allocated by lookupEcNode.
+ *
+ * Also, on request, a fast key is returned which
+ * gives a short representation of the traversed
+ * path
  */
 EcNode
 lookupEcNode(EcNode n, EcKey key, IOPtr *p, EcNodeList *l);
+
+/* same as lookupEcNode but using fast keys */
+EcNode
+lookupEcNodeFast(EcNode n, EcFKey key, IOPtr *p, EcNodeList *l);
 
 /* execute a function for every leaf (i.e. non-directory)
  * node.
@@ -195,5 +184,6 @@ walkEcNode(EcNode n, void (*fn)(EcNodeList l, IOPtr p, void *fnarg), IOPtr p, Ec
 
 /* root node of the board directory */
 extern EcNodeRec	ecdr814Board;
+extern EcNodeRec	ecdr814RawBoard;
 
 #endif
