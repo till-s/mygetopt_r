@@ -15,7 +15,8 @@ typedef enum {
 	EcErrNotLeafNode = -6,
 	EcErrAD6620NotReset = -7,	/* AD6620 writes only allowed while reset */
 	EcErrOutOfRange = -8,		/* Value out of range */
-	EcErrTooManyTaps = -9		/* too many taps for total decimation */
+	EcErrTooManyTaps = -9,		/* too many taps for total decimation */
+	EcErrInvalidIndex = -10		/* invalid array index */
 	/* if adding error codes, ecStrError must be updated */
 } EcErrStat;
 

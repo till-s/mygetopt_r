@@ -5,7 +5,6 @@
 
 
 #include "drvrEcdr814.h"
-#include "bitMenu.h"
 #include "ecdrRegdefs.h"
 #include "ecFastKeys.h"
 
@@ -22,7 +21,7 @@ if ( ! (n->u.r.flags & (EcFlgReadOnly|EcFlgNoInit)))
 
 static EcNodeDirRec boardDirectory={0, name: "root"};
 
-EcNodeRec root={
+EcNodeRec ecRootNode={
 	"/", EcDir, 0, {&boardDirectory}
 	
 };
@@ -113,8 +112,6 @@ drvrEcdr814Init(void)
 {
 	/* initialize tiny virtual fn tables */
 	initRegNodeOps();
-	/* register the menus */
-	walkEcNode( &ecdr814Board, ecRegisterMenu, 0, 0, 0);
 	drvrInited=1;
 }
 
@@ -129,6 +126,7 @@ static char *ecErrNames[] = {
 	"AD6620 must be in reset state for writing",
 	"value out of range",
 	"too many taps for total decimation",
+	"invalid array index",
 };
 
 char *

@@ -25,7 +25,7 @@ EcKey k=*key;
 #ifdef KEYDEBUG
 	fprintf(stderr,"looking up %s in %s\n",k,n->name);
 #endif
-	*key = strchr(k,'.');
+	*key = strchr(k,EC_DIRSEP_CHAR);
 	l = *key ? (*key)++ - k : strlen(k);
 
 	for (i=n->u.d.n->nels-1, rval=&n->u.d.n->nodes[i];

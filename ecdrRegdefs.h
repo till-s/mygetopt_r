@@ -45,6 +45,7 @@
 #define AD6620_MCRBASE(addr)	(((unsigned long)(addr)) & ~ECDR_AD6620_MCR_ALIGNMENT)
 
 #define BITS_AD6620_MCR_RESET	(1<<0)
+#define AD6620_MCR_OFFSET	0x1800
 
 #if 0
 #define BITS_AD6620_MCR_MASK	((1<<8)-1)	/* bits that are actually used in this register */
@@ -54,18 +55,22 @@ extern EcErrStat
 ad6620ConsistencyCheck(EcNode n, IOPtr b);
 
 /* low level operations */
-#if defined(__PPC) || 1
+#if defined(__PPC) || defined(_ARCH_PPC)
 #define EIEIO __asm__ __volatile__("eieio");
+#else
+#define EIEIO
+#endif
+
 /* read big endian word; note that the 'volatile' keyword
  * is essential. Otherwise, the compiler might generate
  * a half word aligned access in a statement like
  *  blah = RDBE(ptr) & 0xffff;
  * which the ECDR doesnt like at all;
  */
+#if defined(__BIG_ENDIAN__)
 #define RDBE(addr) (*((volatile Val_t *)(addr)))
 #define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
 #else
-#define EIEIO
 #define RDBE(addr) (*((volatile Val_t *)(addr)))
 #define WRBE(val, addr) (*((volatile Val_t *)(addr))=(val))
 #endif
@@ -74,7 +79,7 @@ ad6620ConsistencyCheck(EcNode n, IOPtr b);
 extern inline int
 ad6620IsReset(volatile void *b)
 {
-int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620_MCRBASE(b));
+int rval = BITS_AD6620_MCR_RESET & RDBE(AD6620BASE(b) + AD6620_MCR_OFFSET);
 	EIEIO;
 	return rval;
 }

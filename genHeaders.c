@@ -5,7 +5,6 @@
 #include <assert.h>
 
 #include "drvrEcdr814.h"
-#include "bitMenu.h"
 
 static void
 printFastkeyInfo(EcNodeList l, IOPtr p, void* arg)
@@ -17,6 +16,7 @@ if (l->n->offset) return; /* have visited this node already */
 /* oh well, we must calculate the depth... */
 for (depth=-1, pl=l; pl->p; depth++, pl=pl->p) ;
 if (depth >= 0) {
+	char buf[200];
 	long fkey;
 	assert(depth < 8*sizeof(EcFKey)/FKEY_LEN);
 	/* search offset in parent's directory */
@@ -25,8 +25,14 @@ if (depth >= 0) {
 	assert(fkey >=0 && fkey < l->p->n->u.d.n->nels);
 	fkey++; /* 0 is used to mark empty key */
 	assert(fkey < (1<<FKEY_LEN));
-	/* seems ok */
-	fprintf((FILE*)arg,"#define FK_%s_%s\t\t%i\n",l->p->n->u.d.n->name,l->n->name,fkey);
+	/* seems ok, transform name replacing '.' by '_' */
+	strcpy(buf,l->n->name);
+	{ char *chpt;
+	  for (chpt=buf; *chpt; chpt++) {
+		if (!isalnum(*chpt)) *chpt='_';
+	  }
+	}
+	fprintf((FILE*)arg,"#define FK_%s_%s\t\t%i\n",l->p->n->u.d.n->name,buf,fkey);
 	/* mark node visited */
 	l->n->offset=1;
 }
@@ -44,7 +50,7 @@ main(int argc, char ** argv)
 {
 int mode = 0;
 int ch;
-while ((ch=getopt(argc,argv,"km")) >=0) {
+while ((ch=getopt(argc,argv,"k")) >=0) {
 	if (mode) {
 		fprintf(stderr,"%s: ONLY 1 OPTION ALLOWED\n",argv[0]);
 		exit(1);
@@ -57,18 +63,6 @@ switch (mode) {
 		walkEcNode(&ecdr814Board, printFastkeyInfo, 0, 0, stdout);
 	break;
 	
-	case 'm':
-		{
-		int	i;
-		EcMenu	*mp;
-			for ( mp=drvrEcdr814Menus+1; *mp; mp++ )
-				for (i=0; i<(*mp)->nels; i++ )
-					printf("#define EC_MENU_%s_%s	%i\n",
-						(*mp)->menuName, (*mp)->items[i].name,i);
-		
-		}
-	break;
-
 	case 0:
 		fprintf(stderr,"%s: NEED AN OPTION\n",argv[0]);
 		exit(1);

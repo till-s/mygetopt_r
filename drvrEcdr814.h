@@ -8,6 +8,8 @@
 /* number of array elements */
 #define EcdrNumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
 
+#define EC_DIRSEP_CHAR	'/'
+
 /* Node types */
 typedef enum {
 	EcDir = 0,
@@ -17,7 +19,7 @@ typedef enum {
 	EcRdBckReg,
 	EcAD6620Reg,
 	EcAD6620MCR,
-	EcCoeffList
+	EcAD6620RCF
 } EcNodeType;
 
 typedef enum {
@@ -26,6 +28,7 @@ typedef enum {
 	EcFlgNoInit	= (1<<9),	/* do not initialize */
 	EcFlgAD6620RStatic = (1<<10),	/* may only read if in reset state */
 	EcFlgAD6620RWStatic = (1<<11),	/* may only write if in reset state */
+	EcFlgArray	= (1<<12)	/* is an array pos1..pos2 */
 } EcRegFlags;
 
 /* pointer to physical device registers */
@@ -41,6 +44,7 @@ typedef char		*EcKey; /* string keys */
 #define EcKeyIsEmpty(k)	((k)==0)
 #define EcString2Key(k)		(k)
 
+#define	ECDR814_NUM_RCF_COEFFS	4 /* testing */
 
 /* struct describing a node
  * This can be a description of 
@@ -68,17 +72,14 @@ typedef struct EcNodeRec_ {
 			unsigned long		inival;
 			unsigned long   	min,max,adj;
 		} r;					/* if a Reg or AD6620Reg */
-		struct {
-			unsigned char			size;
-		} c;					/* if a CoeffList */
 	} u;
 } EcNodeRec, *EcNode;
 
 #define REGUNLMT( pos1, pos2, flags, inival, min, max, adj) { r: (pos1), (pos2), (flags), (inival), (min), (max), (adj) }
 #define REGUNION( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 0, 0 )
 #define REGUNBIT( pos1, pos2, flags, inival) REGUNLMT( (pos1), (pos2), (flags), (inival), 0, 1, 0 )
-
-#define EcNodeIsDir(n) (EcDir==(n)->t)
+#define EcNodeIsDir(n)   (EcDir==(n)->t)
+#define EcNodeIsArray(n) (!EcNodeIsDir(n) && (EcFlgArray & (n)->u.r.flags))
 
 /* a directory of nodes */
 typedef struct EcNodeDirRec_ {
@@ -98,6 +99,11 @@ typedef struct EcNodeListRec_ {
 EcErrStat
 ecGetValue(EcNode n, IOPtr b, Val_t *prval);
 
+/* if pOldVal is nonzero, the old value
+ * (i.e. the one read from the device
+ * before writing a new one)
+ * is stored to *pOldVal.
+ */
 EcErrStat
 ecPutValue(EcNode n, IOPtr b, Val_t v);
 
@@ -185,7 +191,9 @@ lookupEcNodeFast(EcNode n, EcFKey key, IOPtr *p, EcNodeList *l);
 void
 walkEcNode(EcNode n, void (*fn)(EcNodeList l, IOPtr p, void *fnarg), IOPtr p, EcNodeList l, void *fnarg);
 
-/* root node of the board directory */
+/* root node of all boards */
+extern EcNodeRec	ecRootNode;
+/* node of the board directory */
 extern EcNodeRec	ecdr814Board;
 extern EcNodeRec	ecdr814RawBoard;
 

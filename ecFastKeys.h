@@ -18,6 +18,7 @@
 #define EMPTY_FKEY		((EcFKey)0)
 
 /* prepend an fkey to a path of fkeys */
+#ifndef __STRICT_ANSI__
 extern inline EcFKey 
 ecAddFKeyToPath(EcFKey path, EcFKey fkey)
 {
@@ -47,5 +48,6 @@ while (l->p) {
 }
 return rval;
 }
+#endif
 
 #endif

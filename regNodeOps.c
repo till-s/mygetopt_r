@@ -14,7 +14,7 @@ get(EcNode n, IOPtr b, Val_t *pv)
 EcErrStat rval;
 register Val_t val;
 
-	if (n->u.r.flags & EcFlgAD6620RStatic && ! ad6620IsReset(b)) {
+	if ( (n->u.r.flags & EcFlgAD6620RStatic) && ! ad6620IsReset(b)) {
 		/* some AD6620 registers may only be read while it is in reset state */
 		return EcErrAD6620NotReset;
 	}
@@ -37,7 +37,7 @@ register Val_t val;
 	 */
 	if (n->u.r.min != n->u.r.max &&
 		( val < n->u.r.min + n->u.r.adj || val > n->u.r.max + n->u.r.adj ) )
-		ecWarning( EcErrOutOfRange, " _read_ value of of range ???", 0);
+		ecWarning( EcErrOutOfRange, " _read_ value of of range ???");
 	val-=n->u.r.adj;
 	*pv=val;
 
@@ -104,7 +104,8 @@ static EcErrStat
 rdbckModePutRaw(EcNode n, IOPtr b, Val_t val)
 {
 /* TODO when writing the readback mode, we also want to check the fifo settings
- * and we have to switch unused channels off
+ * and we have to switch unused channels off; actually, we do that
+ * at a higher level...
  */
 return putRaw(n,b,val);
 }
@@ -339,6 +340,36 @@ volatile Val_t	*vp = (Val_t *)b;
 	return EcErrOK;
 }
 
+static EcErrStat
+getCoeffs(EcNode n, IOPtr b, Val_t *v)
+{
+volatile unsigned long *s = (volatile unsigned long *) b;
+unsigned long *d = (unsigned long *) v;
+int i;
+EcErrStat e;
+for (i=n->u.r.pos1; i < n->u.r.pos2; i++,d++,s+=2)
+	if (e=adGetRaw(n,(IOPtr)s,(Val_t*)d))
+		return e;
+return EcErrOK;
+}
+
+static EcErrStat
+putCoeffs(EcNode n, IOPtr b, Val_t v)
+{
+unsigned long *s = (unsigned long *) v;
+volatile unsigned long *d = (volatile unsigned long *) b;
+int i;
+EcErrStat e;
+	if ( ! ad6620IsReset(b)) {
+		/* some coefficients may only be read while it is in reset state */
+		return EcErrAD6620NotReset;
+	}
+	for (i=n->u.r.pos1; i < n->u.r.pos2; i++,s++,d+=2)
+		if (e=adPutRaw(n,(IOPtr)d,*(Val_t*)s))
+			return e;
+return EcErrOK;
+}
+
 /* consistency check for decimation factors and number of taps */
 
 /*
@@ -405,6 +436,15 @@ EcNodeOpsRec ecdr814AD6620RegNodeOps = {
 	adGetRaw,
 	0,
 	adPutRaw
+};
+
+EcNodeOpsRec ecdr814AD6620RCFNodeOps = {
+	&ecdr814AD6620RegNodeOps,
+	0,
+	getCoeffs,
+	0,
+	putCoeffs,
+	0
 };
 
 EcNodeOpsRec ecdr814AD6620MCRNodeOps = {
@@ -483,6 +523,24 @@ EcNodeOps ops;
 	return ops->putRaw(n,b,val);
 }
 
+EcErrStat
+ecLkupNGet(EcNode n, EcFKey k, IOPtr base, Val_t *pv)
+{
+IOPtr addr=base;
+	if (!(n=lookupEcNodeFast(n, k, &addr, 0)))
+		return EcErrNodeNotFound;
+	return ecGetValue(n, addr, pv);
+}
+
+EcErrStat
+ecLkupNPut(EcNode n, EcFKey k, IOPtr base, Val_t pv)
+{
+IOPtr addr=base;
+if (!(n=lookupEcNodeFast(n, k, &addr, 0)))
+	return EcErrNodeNotFound;
+return ecPutValue(n, addr, pv);
+}
+
 static void
 recursive_ini(EcNodeOps ops)
 {
@@ -515,4 +573,5 @@ initRegNodeOps(void)
 	addNodeOps(&ecdr814BrstCntRegNodeOps, EcBrstCntReg);
 	addNodeOps(&ecdr814FifoRegNodeOps, EcFifoReg);
 	addNodeOps(&ecdr814RdBckRegNodeOps, EcRdBckReg);
+	addNodeOps(&ecdr814AD6620RCFNodeOps, EcAD6620RCF);
 }

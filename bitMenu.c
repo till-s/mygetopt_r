@@ -8,6 +8,24 @@
 
 #define MNumberOf	EcdrNumberOf
 
+static EcMenuItemRec	onOffItems[] = {
+	{ "off",	0x0 }, 
+	{ "on",		0x1 }, 
+};
+
+static EcMenuRec			onOffMenu = {
+	"onOff",	MNumberOf(onOffItems), (0x1),	onOffItems
+};
+
+static EcMenuItemRec	resetRunningItems[] = {
+	{ "running",	0x0 }, 
+	{ "reset",	0x1 }, 
+};
+
+static EcMenuRec			resetMenu = {
+	"resetRunning",	MNumberOf(resetRunningItems), (0x1),	resetRunningItems
+};
+
 static EcMenuItemRec	realCmplxItems[] = {
 	{ "singleChannelReal",		0x0 },
 	{ "dualChannelReal",		0x1 },
@@ -90,27 +108,25 @@ static EcMenuItemRec		clkMultItems[] = {
 	{ "Rx_=_4*ADC_Clk",	(0x2)},
 };
 
-static EcMenuRec		clkMult0_3Menu = {
-	"clkMult0_3",	MNumberOf(clkMultItems),  (0x3),	clkMultItems
-};
-
-static EcMenuRec		clkMult4_7Menu = {
-	"clkMult4_7",	MNumberOf(clkMultItems),  (0x3),	clkMultItems
+static EcMenuRec		clkMultMenu = {
+	"clockMult",	MNumberOf(clkMultItems),  (0x3),	clkMultItems
 };
 
 EcMenu	drvrEcdr814Menus[] = {
 	0,	/* dummy entry to avoid 1 index */
+	&onOffMenu,
 	&realCmplxMenu,
 	&trigModeMenu,
 	&modeSelectMenu,
 	&fifoFlgMenu,
 	&rdbackModeMenu,
 	&freqRangeMenu,
-	&clkMult0_3Menu,
-	&clkMult4_7Menu,
+	&clkMultMenu,
+	&resetMenu,
 	0,	/* tag end of list */
 };
 
+#if 0
 void
 ecRegisterMenu(EcNodeList l, IOPtr p, void *arg)
 {
@@ -127,3 +143,4 @@ if (!EcNodeIsDir(n) && EcFlgMenuMask == (n->u.r.flags & EcFlgMenuMask)) {
 	n->u.r.flags |= foundMenuIndex;
 }
 }
+#endif

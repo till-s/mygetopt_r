@@ -1,6 +1,7 @@
 /* $Id$ */
 
 #include <stdlib.h>
+#include <string.h>
 #if defined(DIRSHELL) && !defined(__vxworks)
 #include <unistd.h>
 #endif
@@ -64,10 +65,11 @@ static char		*chpt=0;
 }
 #endif
 
-extern EcNodeRec root;
+extern EcNodeRec ecRootNode;
+
 /* routines for interactive operation */
 static EcNodeListRec top = {
-	n:	&root,
+	n:	&ecRootNode,
 	p:	0
 };
 
@@ -77,7 +79,7 @@ static void rprint(EcNodeList l, FILE *f, int *nchars)
 {
 	if (l->p) {
 		rprint(l->p,f,nchars);
-		fputc('.',f);
+		fputc(EC_DIRSEP_CHAR,f);
 	}
 	{ int n = fprintf(f,l->n->name);
 		if (nchars) *nchars+=n;
@@ -102,33 +104,49 @@ int	pad=0;
 
 	if (l->p) {
 		rprint(l->p,f,&pad);
-		fputc('.',f);
+		fputc(EC_DIRSEP_CHAR,f);
 	}
 	pad+=fprintf(f,n->name);
 
 	fk=ecNodeList2FKey(l);
 
 	if (EcNodeIsDir(n)) {
-		pad+=fprintf(f,".");
+		pad+=fputc(EC_DIRSEP_CHAR,f);
 	} else {
 		m=ecMenu(n->u.r.flags);
 		if ( m ) {
 			pad+=fprintf(f," -v");
 		}
+		if (EcNodeIsArray(n))
+			pad+=fprintf(f,"[]");
 		while (pad++<35) fputc(' ',f);
 		if ( DIROPS_LS_VERBOSE & o->flags ) {
-			Val_t v,rv;
-			EcErrStat e=(ecGetValue(n, p,&v) || ecGetRawValue(n,p,&rv));
+			Val_t v,rv,*memp=0,*pv=&v;
+			int nels=1,i;
+			EcErrStat e;
+			if ( EcNodeIsArray(n) ) {
+				nels = n->u.r.pos2;
+				pv = memp = (Val_t*) malloc(sizeof(Val_t)*nels);
+			}
+			e=(ecGetValue(n, p,pv) || (nels>1 && ecGetRawValue(n,p,&rv)));
 			if (e) {
 				fprintf(f,"ERROR: %s",ecStrError(e));
 			} else {
 				if (m)
 					fprintf(f," @0x%08x: %s (ini: %s, raw: 0x%08x)",
 						p, m->items[v].name, m->items[n->u.r.inival].name, rv );
-				else
-					fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
-						p, v, n->u.r.inival, rv );
+				else {
+					if (nels > 1) {
+						fprintf(f,"   array [%i] @0x%08x\n",nels,p);
+						while (nels--)
+							fprintf(f,"    %8i\n", *(pv++));
+					} else {
+						fprintf(f," @0x%08x: %i (ini: %i, raw: 0x%08x)",
+							p, v, n->u.r.inival, rv );
+					}
+				}
 			}
+			if (memp) free(memp);
 		}
 	}
 	while (pad++<35) fputc(' ',f);
@@ -153,6 +171,18 @@ int nchars=0;
 	fputc('\n',f);
 }
 
+static int
+getArrayIndex(char **s)
+{
+int rval;
+char *chpt=*s, *endp;
+	if (!(chpt=strchr(*s,'['))) return -1;
+	rval=strtoul(chpt+1,&endp,0);
+	if (']'!=*endp) return -1;
+	*s = chpt;
+	return rval;
+}
+
 EcErrStat
 ecGet(EcKey k, Val_t *valp, EcMenu *mp)
 {
@@ -160,24 +190,44 @@ EcErrStat	e=EcErrOK;
 IOPtr		p=0;
 EcNode		n;
 EcNodeList	l;
+int		idx;
+char		buf[100],*chpt;
+Val_t		*arr=0;
+
 	if (mp) *mp=0;
 	for (l=cwd; l; l=l->p)
 		p+=l->n->offset;
 
-	if (!(n=lookupEcNode(cwd->n, k, &p, 0))) {
+	strcpy(buf,k);
+	chpt=buf;
+	if ((idx=getArrayIndex(&chpt))>=0) {
+		*chpt=0; /* strip [idx] */
+	}
+
+	if (!(n=lookupEcNode(cwd->n, buf, &p, 0))) {
 		return EcErrNodeNotFound;
 	}
 	if (EcNodeIsDir(n)) {
 		e = EcErrNotLeafNode;
 		goto cleanup;
 	}
-
-	if (e=ecGetValue(n, p, valp))
+	if ( ((idx>=0) ^ (0 != EcNodeIsArray(n))) || idx >= n->u.r.pos2  ) {
+		e = EcErrInvalidIndex;
 		goto cleanup;
-
-	if (mp) *mp = ecMenu(n->u.r.flags);
+	}
+	if (EcNodeIsArray(n)) {
+		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.pos2);
+		if (e=ecGetValue(n, p, arr))
+			goto cleanup;
+		*valp = arr[idx];
+	} else {
+		if (e=ecGetValue(n, p, valp))
+			goto cleanup;
+		if (mp) *mp = ecMenu(n->u.r.flags);
+	}
 
 cleanup:
+	if (arr) free(arr);
 	return e;
 }
 
@@ -188,18 +238,40 @@ IOPtr		p=0;
 EcNode		n;
 EcErrStat	e=EcErrOK;
 EcNodeList	l;
+int		idx;
+char		buf[100],*chpt;
+Val_t		*arr=0;
+
 	for (l=cwd; l; l=l->p)
 		p+=l->n->offset;
+	strcpy(buf,k);
+	chpt=buf;
+	if ((idx=getArrayIndex(&chpt))>=0) {
+		*chpt=0; /* strip [idx] */
+	}
 
-	if (!(n=lookupEcNode(cwd->n, k, &p, 0))) {
+
+	if (!(n=lookupEcNode(cwd->n, buf, &p, 0))) {
 		return EcErrNodeNotFound;
 	}
 	if (EcNodeIsDir(n)) {
 		e = EcErrNotLeafNode;
 		goto cleanup;
 	}
+	if ( ((idx>=0) ^ (0 != EcNodeIsArray(n))) || idx >= n->u.r.pos2  ) {
+		e = EcErrInvalidIndex;
+		goto cleanup;
+	}
+	if (EcNodeIsArray(n)) {
+		arr = (Val_t*)malloc(sizeof(Val_t)*n->u.r.pos2);
+		if (e=ecGetValue(n, p, arr))
+			goto cleanup;
+		arr[idx]=val;
+		val = (Val_t)arr;
+	}
 	e = ecPutValue(n, p, val);
 cleanup:
+	if (arr) free(arr);
 	return e;
 }
 

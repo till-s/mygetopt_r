@@ -3,6 +3,7 @@
 #include "drvrEcdr814.h"
 #include "ecdrRegdefs.h"
 #include "ecErrCodes.h"
+#include "regNodeOps.h"
 
 #include "ecFastKeys.h"
 
@@ -75,24 +76,6 @@ cleanup:
  * register.
  */
 
-static EcErrStat
-lkupNGet(EcNode n, EcFKey k, IOPtr base, Val_t *pv)
-{
-IOPtr addr=base;
-if (!(n=lookupEcNodeFast(n, k, &addr, 0)))
-	return EcErrNodeNotFound;
-return ecGetValue(n, addr, pv);
-}
-
-static EcErrStat
-lkupNPut(EcNode n, EcFKey k, IOPtr base, Val_t *pv)
-{
-IOPtr addr=base;
-if (!(n=lookupEcNodeFast(n, k, &addr, 0)))
-	return EcErrNodeNotFound;
-return ecPutValue(n, addr, *pv);
-}
-
 
 EcErrStat
 ad6620ConsistencyCheck(EcNode n, IOPtr addr)
@@ -120,11 +103,11 @@ if (!(n = lookupEcNodeFast(&ecdr814Board, fk, 0, 0)))
  * register address
  */
 base = (IOPtr)AD6620BASE(addr);
-if ( (rval=lkupNGet(n, FK_ad6620_cic2Decm, base, &mCiC2))  ||
-     (rval=lkupNGet(n, FK_ad6620_cic5Decm, base, &mCiC5))  ||
-     (rval=lkupNGet(n, FK_ad6620_rcfDecm,  base, &mRCF))   ||
-     (rval=lkupNGet(n, FK_ad6620_rcfNTaps,    base, &nTaps))  ||
-     (rval=lkupNGet(n, FK_ad6620_rcf1stTap,   base, &frstTap)) )
+if ( (rval=ecLkupNGet(n, FK_ad6620_cic2Decm, base, &mCiC2))  ||
+     (rval=ecLkupNGet(n, FK_ad6620_cic5Decm, base, &mCiC5))  ||
+     (rval=ecLkupNGet(n, FK_ad6620_rcfDecm,  base, &mRCF))   ||
+     (rval=ecLkupNGet(n, FK_ad6620_rcfNTaps,    base, &nTaps))  ||
+     (rval=ecLkupNGet(n, FK_ad6620_rcf1stTap,   base, &frstTap)) )
 	return rval;
 
 /* do a consistency check */

@@ -10,6 +10,12 @@ extern EcNodeOpsRec ecdr814RegNodeOps;
 extern EcNodeOpsRec ecdr814AD6620RegNodeOps;
 #endif
 
+EcErrStat
+ecLkupNGet(EcNode, EcFKey, IOPtr, Val_t *);
+
+EcErrStat
+ecLkupNPut(EcNode, EcFKey, IOPtr, Val_t);
+
 extern void
 initRegNodeOps(void);
 
