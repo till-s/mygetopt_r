@@ -311,4 +311,9 @@ ecSetupDMADesc( EcDMADesc  desc,   /* descriptor to be initialized */
 EcErrStat
 ecStartDMA( EcBoardDesc board, EcDMADesc d);
 
+/* interrupt vectors */
+#define ECDR814_INT_VEC		0xee
+#define CY7C961_GOOD_INT_VEC	0xc1
+#define CY7C961_BAD_INT_VEC	0xc0
+
 #endif
