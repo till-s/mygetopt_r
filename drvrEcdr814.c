@@ -7,6 +7,7 @@
 #include "drvrEcdr814.h"
 #include "ecdrRegdefs.h"
 #include "ecFastKeys.h"
+#include "regNodeOps.h"
 
 #include "ecOsDep.h"
 
@@ -22,7 +23,7 @@ if ( ! (cn->u.r.flags & (EcFlgReadOnly|EcFlgNoInit)))
 static EcCNodeDirRec boardDirectory={0, name: "root"};
 
 EcCNodeRec ecRootNode={
-	"/", EcDir, 0, {&boardDirectory}
+	"/", EcDir, 0, {d:{&boardDirectory}}
 	
 };
 
@@ -70,10 +71,11 @@ Val_t		v;
 	 * really provide a RO register with a
 	 * (version etc.) signature...
 	 */
-	assert(0==osdep_memProbe(b/* TODO + feature register offset */,
+	if (osdep_memProbe(b/* TODO + feature register offset */,
 				  0/* read */, 
 				  4/* bytes */,
-				  &v));
+				  &v))
+		return EcErrNoDevice;
 
 #if 0 /* TODO check against known value, firmware version etc */
 	/* use RDBE for portability */
@@ -92,7 +94,8 @@ Val_t		v;
 
 
 	boards[k] = (EcBoardDesc)malloc(sizeof(EcBoardDescRec));
-	boards[k]->name = name; /* probably, we should make a copy here */
+	assert(boards[k]->name = malloc(strlen(name)+1));
+	strcpy(boards[k]->name, name);
 	boards[k]->base = b;
 	boards[k]->vmeBase = vme_b;
 	boards[k]->root = ecdr814Board;
