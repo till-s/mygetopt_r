@@ -627,7 +627,7 @@ fprintf(f,"    put <wpath>[<idx>] <value>   -- write <value> to <wpath>; if <wpa
 fprintf(f,"                                    an array, element <idx> must be specified.\n");
 fprintf(f,"				    e.g. enable gain on all channels on all boards:\n\n");
 
-fprintf(f,"				      put %c%c%c%c%c%cgainEna 1\n\n",W,B,D,W,D,W);
+fprintf(f,"				      put %c%c%c%c%c%cfifoRst 1\n\n",W,B,D,W,D,W);
 
 fprintf(f,"    pwd                          -- print current working directory\n\n");
 
@@ -637,7 +637,7 @@ fprintf(f,"    <path>                       -- relative or absolute path specifi
 fprintf(f,"                                    <path> = [ [<board name>, '%c',] '%c' ] { <name>, '%c' }\n",B,D,D);
 fprintf(f,"                                    e.g.\n\n");
 
-fprintf(f,"                                      01%cclockSame,  B0%c%crdbackMode, %c01%cC0.gainEna\n\n",D,B,D,D,D);
+fprintf(f,"                                      01%cclockSame,  B0%c%crdbackMode, %c01%cC0.fifoRst\n\n",D,B,D,D,D);
 
 fprintf(f,"    <wpath>                      -- path with 'wildcard' names (wildcard: '%c')\n",W);
 fprintf(f,"                                    e.g.\n\n");
