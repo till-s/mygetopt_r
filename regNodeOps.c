@@ -8,8 +8,13 @@
 #include "ecFastKeys.h"
 #include "menuDefs.h"
 
+#ifdef NDEBUG
+#error "this code uses assert with side-effects"
+#endif
+
 #include <assert.h>
 #include<stdio.h>
+
 
 static EcErrStat
 getCoeffs(EcBoardDesc bd, EcNode node, Val_t *pv);
@@ -454,8 +459,18 @@ Val_t	fifoctl = RDBE(vp);
 	return EcErrOK;
 }
 
-#define BURST_COUNT_LSBREG 0x8
-#define BURST_COUNT_MSB	1
+/* bit masks */
+
+/* burst cnt msb register */
+#define BURST_COUNT_MSB				1
+/* fifo write count msb register */
+#define FIFO_WRITE_CNT_IRQ_SELECT	2
+
+/* Offsets from register holding burst count MSB */
+#define BURST_COUNT_LSBREG		0x8
+#define CHANNEL_VERSION_REG		(0x48-0x20)
+#define FIFO_WRITE_CNT_MSB_REG	(0x50-0x20)
+#define FIFO_WRITE_CNT_LSW_REG	(0x4c-0x20)
 
 static EcErrStat
 brstCntGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
@@ -494,6 +509,17 @@ Val_t		msb;
 	else 
 		msb &= ~BURST_COUNT_MSB;
 	WRBE(msb,vp);
+
+	/* If Channel firmware revision >= 2 propagate to the FIFO write counter
+	 * and re-route interrupts to the FIFO write counter
+	 */
+	vp = (Val_t*)((unsigned long)b + CHANNEL_VERSION_REG);
+	if ( (RDBE(vp) & 0xffff) >= 2 ) {
+		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_LSW_REG);
+		WRBE((val+1)&0xffff, vp);
+		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_MSB_REG);
+		WRBE( (((val+1)>>16) & 1) | FIFO_WRITE_CNT_IRQ_SELECT, vp);
+	}
 	*addr = 0; /* autoincrement doesnt make sense here */
 	return EcErrOK;
 }
@@ -649,7 +675,8 @@ ecGetValue(EcBoardDesc bd, EcNode node, Val_t *vp)
 {
 EcCNodeOps	ops;
 EcCNode		n=node->cnode;
-	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
+	assert(n->t < EcdrNumberOf(nodeOps));
+	assert((ops=nodeOps[n->t]));
 	assert(ops->get);
 	return ops->get(bd,node,vp);
 }
@@ -660,7 +687,8 @@ ecGetRawValue(EcBoardDesc bd, EcNode node, Val_t *vp)
 EcCNodeOps	ops;
 EcCNode		n=node->cnode;
 IOPtr		addr = bd->base + node->u.offset;
-	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
+	assert(n->t < EcdrNumberOf(nodeOps));
+	assert((ops=nodeOps[n->t]));
 	assert(ops->getRaw);
 	return ops->getRaw(&addr,node,vp);
 }
@@ -670,7 +698,8 @@ ecPutValue(EcBoardDesc bd, EcNode node, Val_t val)
 {
 EcCNodeOps 	ops;
 EcCNode		n=node->cnode;
-	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
+	assert(n->t < EcdrNumberOf(nodeOps));
+	assert(ops=nodeOps[n->t]);
 	assert(ops->put);
 	return ops->put(bd,node,val);
 }
@@ -681,7 +710,8 @@ ecPutRawValue(EcBoardDesc bd, EcNode node, Val_t val)
 EcCNodeOps 	ops;
 EcCNode		n=node->cnode;
 IOPtr		addr = bd->base + node->u.offset;
-	assert(n->t < EcdrNumberOf(nodeOps) && (ops=nodeOps[n->t]));
+	assert(n->t < EcdrNumberOf(nodeOps));
+	assert((ops=nodeOps[n->t]));
 	assert(ops->putRaw);
 	return ops->putRaw(&addr,node,val);
 }
