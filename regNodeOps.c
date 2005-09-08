@@ -260,9 +260,7 @@ volatile Val_t	*vp = (Val_t *)*addr;
 	WRBE(val & 0xffff, vp);
 	EIEIO; /* most probably not necessary in guarded memory */
 	WRBE((val>>16)&0xffff, vp+1);
-	EIEIO; /* just in case they read it back again: enforce
-	        * completion of write before load
-	        */
+	EIEIO;
 	/* increment address pointer */
 	*addr = (IOPtr)(vp+2);
 	return EcErrOK;
@@ -467,10 +465,12 @@ Val_t	fifoctl = RDBE(vp);
 #define FIFO_WRITE_CNT_IRQ_SELECT	2
 
 /* Offsets from register holding burst count MSB */
-#define BURST_COUNT_LSBREG		0x8
-#define CHANNEL_VERSION_REG		(0x48-0x20)
-#define FIFO_WRITE_CNT_MSB_REG	(0x50-0x20)
-#define FIFO_WRITE_CNT_LSW_REG	(0x4c-0x20)
+#define BURST_COUNT_LSBREG			0x8
+#define CHANNEL_VERSION_REG			(0x48-0x20)
+#define FIFO_WRITE_CNT_MSB_REG_A	(0x50-0x20)
+#define FIFO_WRITE_CNT_LSW_REG_A	(0x4c-0x20)
+#define FIFO_WRITE_CNT_MSB_REG_B	(0x54-0x20)
+#define FIFO_WRITE_CNT_LSW_REG_B	(0x58-0x20)
 
 static EcErrStat
 brstCntGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
@@ -515,9 +515,15 @@ Val_t		msb;
 	 */
 	vp = (Val_t*)((unsigned long)b + CHANNEL_VERSION_REG);
 	if ( (RDBE(vp) & 0xffff) >= 2 ) {
-		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_LSW_REG);
+		/* We don't support different write counts for Rx A and B */
+		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_LSW_REG_A);
 		WRBE((val+1)&0xffff, vp);
-		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_MSB_REG);
+		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_MSB_REG_A);
+		WRBE( (((val+1)>>16) & 1) | FIFO_WRITE_CNT_IRQ_SELECT, vp);
+
+		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_LSW_REG_B);
+		WRBE((val+1)&0xffff, vp);
+		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_MSB_REG_B);
 		WRBE( (((val+1)>>16) & 1) | FIFO_WRITE_CNT_IRQ_SELECT, vp);
 	}
 	*addr = 0; /* autoincrement doesnt make sense here */

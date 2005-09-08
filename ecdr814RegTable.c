@@ -62,6 +62,7 @@ static EcCNodeRec ad6620RegDefs[] = {
 	/* name,	node type,	offset,		bitmask	 	flags	initialization	*/
 	/* 						start,end		value		*/
 {	"rcfCoeffs",	EcAD6620Reg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
+{	"rcfData",		EcAD6620Reg,	0x0800, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
 {	"state",	EcAD6620MCR,	0x1800,	REGUNBIT( 0, 1,		Mro,	1)		},	/* init: leave in reset */
 {	"realCmplx",	EcAD6620Reg,	0x1800,	REGUNION( 1, 3,		RWST|Mrc,0)		},	/* treat bits other than reset as ordinary RWST regs */
 {	"syncMaster",	EcAD6620Reg,	0x1800,	REGUNLMT( 3, 8,		RWST,	0,		0,	1,	0)},
@@ -77,7 +78,7 @@ static EcCNodeRec ad6620RegDefs[] = {
 {	"cic2Decm",	EcAD6620Reg,	0x1830,	REGUNLMT( 0, 8,		RWST,	2,		1,	16,	-1)},
 {	"cic5Scale",	EcAD6620Reg,	0x1838,	REGUNLMT( 0, 5,		0,	0,		0,	20,	0)},
 {	"cic5Decm",	EcAD6620Reg,	0x1840,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},
-{	"rcfScale",	EcAD6620Reg,	0x1848,	REGUNLMT( 0, 8,		0,	1,		1,	8,	-1)},
+{	"rcfScale",	EcAD6620Reg,	0x1848,	REGUNLMT( 0, 8,		0,	0,		0,	7,	0)},
 {	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},
 {	"rcf1stTap",	EcAD6620Reg,	0x1858,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
 {	"rcfNTaps",	EcAD6620Reg,	0x1860,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},	/* TODO:  wraparound? */
