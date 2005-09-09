@@ -46,21 +46,22 @@ typedef char		*EcKey; /* string keys */
 /* CNode types */
 typedef enum {
 	EcDir = 0,
+	EcDblReg,
 	EcReg,
 	EcFifoReg,
 	EcBrstCntReg,
 	EcRdBckReg,
-	EcAD6620Reg,
 	EcAD6620MCR
 } EcCNodeType;
 
 typedef enum {
 	EcFlgMenuMask	= (1<<5)-1,	/* uses a menu */
 	EcFlgReadOnly	= (1<<8),	/* readonly register */
-	EcFlgNoInit	= (1<<9),	/* do not initialize */
+	EcFlgNoInit	= (1<<9),		/* do not initialize */
 	EcFlgAD6620RStatic = (1<<10),	/* may only read if in reset state */
 	EcFlgAD6620RWStatic = (1<<11),	/* may only write if in reset state */
-	EcFlgArray	= (1<<12)	/* is an array */
+	EcFlgArray	= (1<<12),		/* is an array */
+	EcFlgP2Enbl	= (1<<13)		/* pos2 also serves as an 'enable' flag */
 } EcRegFlags;
 
 /* struct describing a node

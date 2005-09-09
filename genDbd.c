@@ -90,8 +90,6 @@ extern EcNode ecCreateDirectory(EcCNode);
 int
 main(int argc, char ** argv)
 {
-int	i;
-EcMenu	*mp;
 FILE	*f=stdout;
 EcNode  root = ecCreateDirectory(&ecdr814CInfo);
 

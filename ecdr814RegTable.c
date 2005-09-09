@@ -18,6 +18,9 @@
 #define RST	EcFlgAD6620RStatic
 #define RWST	EcFlgAD6620RWStatic
 
+/* initial value for burst size */
+#define BURSTINI	128
+
 #define NUM_C	ECDR814_NUM_RCF_COEFFS
 
 /* NOTE: the epics record support layer gives the '.' in some field
@@ -40,48 +43,49 @@
 static EcCNodeRec ad6620RawRegDefs[] = {
 	/* name,	node type,	offset,		bitmask	 	flags	initialization	min value, max value, value offset */
 	/* 						start,end		value						   */
-{	"rcfCoeffs",	EcAD6620Reg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
+{	"rcfCoeffs",	EcDblReg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
+{	"rcfData",	EcDblReg,	0x0800, REGARRNL( NUM_C,        AR|RST|RWST|NI,0)           },
 {	"mcr",		EcAD6620MCR,	0x1800,	REGUNION( 0, 32, 	0,	1)		},	/* leave in reset */
-{	"ncoCtl",	EcAD6620Reg,	0x1808,	REGUNION( 0, 32, 	RWST,	0)		},
-{	"ncoSyncMsk",	EcAD6620Reg,	0x1810,	REGUNION( 0, 32, 	0,	0)		},
-{	"ncoFreq",	EcAD6620Reg,	0x1818,	REGUNION( 0, 32, 	0,	0)		},
-{	"ncoPhase",	EcAD6620Reg,	0x1820,	REGUNION( 0, 32, 	0,	0)		},
-{	"cic2Scale",	EcAD6620Reg,	0x1828,	REGUNION( 0, 32, 	0,	0)		},
-{	"cic2Decm",	EcAD6620Reg,	0x1830,	REGUNION( 0, 32, 	RWST,	0)		},
-{	"cic5Scale",	EcAD6620Reg,	0x1838,	REGUNION( 0, 32, 	0,	0)		},
-{	"cic5Decm",	EcAD6620Reg,	0x1840,	REGUNION( 0, 32, 	RWST,	0)		},
-{	"rcfCtl",	EcAD6620Reg,	0x1848,	REGUNION( 0, 32, 	0,	0)		},
-{	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNION( 0, 32, 	RWST,	0)		},
-{	"rcf1stTap",	EcAD6620Reg,	0x1858,	REGUNION( 0, 32, 	0,	0)		},
-{	"rcfNTaps",	EcAD6620Reg,	0x1860,	REGUNION( 0, 32, 	RWST,	0)		},
-{	"reserved",	EcAD6620Reg,	0x1868,	REGUNION( 0, 32, 	RWST,	0)		}, /* MUST be initialized to 0 */
+{	"ncoCtl",	EcDblReg,	0x1808,	REGUNION( 0, 32, 	RWST,	0)		},
+{	"ncoSyncMsk",EcDblReg,	0x1810,	REGUNION( 0, 32, 	0,	0)		},
+{	"ncoFreq",	EcDblReg,	0x1818,	REGUNION( 0, 32, 	0,	0)		},
+{	"ncoPhase",	EcDblReg,	0x1820,	REGUNION( 0, 32, 	0,	0)		},
+{	"cic2Scale",EcDblReg,	0x1828,	REGUNION( 0, 32, 	0,	0)		},
+{	"cic2Decm",	EcDblReg,	0x1830,	REGUNION( 0, 32, 	RWST,	0)		},
+{	"cic5Scale",EcDblReg,	0x1838,	REGUNION( 0, 32, 	0,	0)		},
+{	"cic5Decm",	EcDblReg,	0x1840,	REGUNION( 0, 32, 	RWST,	0)		},
+{	"rcfCtl",	EcDblReg,	0x1848,	REGUNION( 0, 32, 	0,	0)		},
+{	"rcfDecm",	EcDblReg,	0x1850,	REGUNION( 0, 32, 	RWST,	0)		},
+{	"rcf1stTap",EcDblReg,	0x1858,	REGUNION( 0, 32, 	0,	0)		},
+{	"rcfNTaps",	EcDblReg,	0x1860,	REGUNION( 0, 32, 	RWST,	0)		},
+{	"reserved",	EcDblReg,	0x1868,	REGUNION( 0, 32, 	RWST,	0)		}, /* MUST be initialized to 0 */
 };
 
 /* we allow writes to these registers only when "reset" is asserted */
 static EcCNodeRec ad6620RegDefs[] = {
 	/* name,	node type,	offset,		bitmask	 	flags	initialization	*/
 	/* 						start,end		value		*/
-{	"rcfCoeffs",	EcAD6620Reg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
-{	"rcfData",		EcAD6620Reg,	0x0800, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
+{	"rcfCoeffs",EcDblReg,	0x0000, REGARRNL( NUM_C,        AR|RWST|NI,0)           },
+{	"rcfData",	EcDblReg,	0x0800, REGARRNL( NUM_C,        AR|RST|RWST|NI,0)           },
 {	"state",	EcAD6620MCR,	0x1800,	REGUNBIT( 0, 1,		Mro,	1)		},	/* init: leave in reset */
-{	"realCmplx",	EcAD6620Reg,	0x1800,	REGUNION( 1, 3,		RWST|Mrc,0)		},	/* treat bits other than reset as ordinary RWST regs */
-{	"syncMaster",	EcAD6620Reg,	0x1800,	REGUNLMT( 3, 8,		RWST,	0,		0,	1,	0)},
-{	"ncoBypass",	EcAD6620Reg,	0x1808,	REGUNBIT( 0, 1,		RWST,	0)		},	/* off */
-{	"phaseDith",	EcAD6620Reg,	0x1808,	REGUNBIT( 1, 2,		RWST,	0)		},	/* off */
-{	"ampDith",	EcAD6620Reg,	0x1808,	REGUNBIT( 2, 3,		RWST,	0)		},	/* off */
-{	"ncoSyncMsk",	EcAD6620Reg,	0x1810,	REGUNION( 0, 32,	0,	0xffffffff)		},
-{	"ncoFreq",	EcAD6620Reg,	0x1818,	REGUNION( 0, 32,	0,	0)		},
-{	"ncoPhase",	EcAD6620Reg,	0x1820,	REGUNION( 0, 32,	0,	0)		},
-{	"cic2Scale",	EcAD6620Reg,	0x1828,	REGUNLMT( 0, 3,		0,	0,		0,	8,	0)},
-{	"inpExpInv",	EcAD6620Reg,	0x1828,	REGUNBIT( 4, 5,		0,	0)		},
-{	"inpExpOff",	EcAD6620Reg,	0x1828,	REGUNLMT( 5, 8,		0,	0,		0,	8,	0)},
-{	"cic2Decm",	EcAD6620Reg,	0x1830,	REGUNLMT( 0, 8,		RWST,	2,		1,	16,	-1)},
-{	"cic5Scale",	EcAD6620Reg,	0x1838,	REGUNLMT( 0, 5,		0,	0,		0,	20,	0)},
-{	"cic5Decm",	EcAD6620Reg,	0x1840,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},
-{	"rcfScale",	EcAD6620Reg,	0x1848,	REGUNLMT( 0, 8,		0,	0,		0,	7,	0)},
-{	"rcfDecm",	EcAD6620Reg,	0x1850,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},
-{	"rcf1stTap",	EcAD6620Reg,	0x1858,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
-{	"rcfNTaps",	EcAD6620Reg,	0x1860,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},	/* TODO:  wraparound? */
+{	"realCmplx",EcDblReg,	0x1800,	REGUNION( 1, 3,		RWST|Mrc,0)		},	/* treat bits other than reset as ordinary RWST regs */
+{	"syncMaster",EcDblReg,	0x1800,	REGUNLMT( 3, 8,		RWST,	0,		0,	1,	0)},
+{	"ncoBypass",EcDblReg,	0x1808,	REGUNBIT( 0, 1,		RWST,	0)		},	/* off */
+{	"phaseDith",EcDblReg,	0x1808,	REGUNBIT( 1, 2,		RWST,	0)		},	/* off */
+{	"ampDith",	EcDblReg,	0x1808,	REGUNBIT( 2, 3,		RWST,	0)		},	/* off */
+{	"ncoSyncMsk",EcDblReg,	0x1810,	REGUNION( 0, 32,	0,	0xffffffff)		},
+{	"ncoFreq",	EcDblReg,	0x1818,	REGUNION( 0, 32,	0,	0)		},
+{	"ncoPhase",	EcDblReg,	0x1820,	REGUNION( 0, 32,	0,	0)		},
+{	"cic2Scale",EcDblReg,	0x1828,	REGUNLMT( 0, 3,		0,	0,		0,	8,	0)},
+{	"inpExpInv",EcDblReg,	0x1828,	REGUNBIT( 4, 5,		0,	0)		},
+{	"inpExpOff",EcDblReg,	0x1828,	REGUNLMT( 5, 8,		0,	0,		0,	8,	0)},
+{	"cic2Decm",	EcDblReg,	0x1830,	REGUNLMT( 0, 8,		RWST,	2,		1,	16,	-1)},
+{	"cic5Scale",EcDblReg,	0x1838,	REGUNLMT( 0, 5,		0,	0,		0,	20,	0)},
+{	"cic5Decm",	EcDblReg,	0x1840,	REGUNLMT( 0, 8,		RWST,	1,		1,	32,	-1)},
+{	"rcfScale",	EcDblReg,	0x1848,	REGUNLMT( 0, 8,		0,	4,		0,	7,	0)},
+{	"rcfDecm",	EcDblReg,	0x1850,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},
+{	"rcf1stTap",EcDblReg,	0x1858,	REGUNLMT( 0, 8,		0,	0,		0,	255,	0)},
+{	"rcfNTaps",	EcDblReg,	0x1860,	REGUNLMT( 0, 8,		RWST,	1,		1,	256,	-1)},	/* TODO:  wraparound? */
 };
 
 static EcCNodeDirRec ad6620Dir = {EcdrNumberOf(ad6620RegDefs), ad6620RegDefs, "ad6620"};
@@ -95,7 +99,7 @@ static EcCNodeRec ecdrChannelRegDefs[] = {
 {	"modeSelect",	EcReg,		0x4,	REGUNION( 0, 3,		Mms,	0)		},
 {	"channelID",	EcReg,		0x4,	REGUNLMT( 3, 6,		NI,	0,		0,	7,	0)},	/* filled in at driver ini */
 {	"nAccum",	EcReg,		0x4,	REGUNLMT( 6, 14,	0,	1,		1,	256,	-1)},
-{	"burstCnt",	EcBrstCntReg,	0x0,	REGUNLMT( 0, 17,	0,	0,		1,	0x20000,-1)},	/* TODO special values depending on accu mode */
+{	"burstCnt",	EcBrstCntReg,	0x0,	REGUNLMT( 0, 17,	0,	BURSTINI,		1,	0x20000,-1)},	/* TODO special values depending on accu mode */
 {	"totDecm_2",	EcReg,		0xc,	REGUNLMT( 0, 14,	0,	1,		1,	16384,  -1)},	/* TODO: special, depends on AD settings: they calculate from cics and rcf, check <=16383 */
 };
 
@@ -127,6 +131,15 @@ static EcCNodeRec ecdrChannelPairRegDefs[] = {
 {	"C1.attnEna",	EcReg,		0x30,	REGUNBIT( 1, 2,		0,	0)		},
 {	"C0.attn",	EcReg,		0x30,	REGUNLMT( 2, 7,		0,	0,		-7,	24,	7)},
 {	"C1.attn",	EcReg,		0x30,	REGUNLMT( 7, 12,	0,	0,		-7,	24,	7)},
+{	"C0.fifoDly",	EcDblReg,	0x38,	REGUNLMT( 0, 24,	EcFlgP2Enbl,	0,		0,	(1<<24)-1,	0)},
+{	"C1.fifoDly",	EcDblReg,	0x40,	REGUNLMT( 0, 24,	EcFlgP2Enbl,	0,		0,	(1<<24)-1,	0)},
+{	"C0.fwVersion",	EcReg,	0x48,	REGUNLMT( 0, 16,	RO|NI,	0,		0,	0xffff,	0)},	/* R/O reg */
+{	"C1.fwVersion",	EcReg,	0x48,	REGUNLMT( 0, 16,	RO|NI,	0,		0,	0xffff,	0)},	/* R/O reg */
+/* Treating fifoWCnt as a EcFlgP2Enbl register has the side-effect of enabling this register as an IRQ
+ * source if it is non-zero
+ */
+{	"C0.fifoWCnt",	EcDblReg,	0x4c,	REGUNLMT( 0, 17,	EcFlgP2Enbl,	BURSTINI,		0,	(1<<17)-1,	0)},
+{	"C1.fifoWCnt",	EcDblReg,	0x54,	REGUNLMT( 0, 17,	EcFlgP2Enbl,	BURSTINI,		0,	(1<<17)-1,	0)},
 {	"0A",		EcDir,		0x2000,	{ d: {&ad6620Dir} }		},
 {	"0B",		EcDir,		0x4000,	{ d: {&ad6620Dir} }		},
 {	"1A",		EcDir,		0x6000,	{ d: {&ad6620Dir} }		},
@@ -138,7 +151,12 @@ static EcCNodeRec ecdrChannelPairRawRegDefs[] = {
 {	"C0",		EcDir,		0x10,	{ d: {&ecdrChannelRawDir} }	},
 {	"C1",		EcDir,		0x20,	{ d: {&ecdrChannelRawDir} }	},
 {	"attn",		EcReg,		0x30,	REGUNION( 0, 32,	0,	0)		},
-{	"fifoOffset",	EcReg,		0x40,	REGUNION( 0, 32,	0,	0)		},
+{	"C0.fifoDly",EcDblReg,	0x38,	REGUNION( 0, 32,	0,	0)		},
+{	"C1.fifoDly",EcDblReg,	0x40,	REGUNION( 0, 32,	0,	0)		},
+{	"fifoOffset",	EcReg,	0x40,	REGUNION( 0, 32,	0,	0)		},
+{	"fwVersion",	EcReg,	0x48,	REGUNION( 0, 32,	RO,	0)		},
+{	"C0.fifoWCnt",EcDblReg,	0x4c,	REGUNION( 0, 32,	0,	0)		},
+{	"C1.fifoWCnt",EcDblReg,	0x54,	REGUNION( 0, 32,	0,	0)		},
 {	"0A",		EcDir,		0x2000,	{ d: {&ad6620RawDir} }		},
 {	"0B",		EcDir,		0x4000,	{ d: {&ad6620RawDir} }		},
 {	"1A",		EcDir,		0x6000,	{ d: {&ad6620RawDir} }		},
@@ -182,6 +200,8 @@ static EcCNodeRec ecdrBoardRegDefs[] = {
 {	"extHdr",	EcReg,		0x18,	REGUNION( 0, 16,	RO,	0)		},
 {	"fifoOvfl",	EcReg,		0x18,	REGUNION(16, 24,	RO,	0)		},
 {	"fifoUdfl",	EcReg,		0x18,	REGUNION(24, 32,	RO,	0)		},
+{	"fwVersion",EcReg,		0x1c,	REGUNION(0, 8,	RO,	0)		},
+{	"brdVersion",EcReg,		0x1c,	REGUNION(8, 16,	RO,	0)		},
 {	"01",		EcDir,		0x10000,{ d: {&ecdrChannelPairDir} }	},
 {	"23",		EcDir,		0x20000,{ d: {&ecdrChannelPairDir} }	},
 {	"45",		EcDir,		0x30000,{ d: {&ecdrChannelPairDir} }	},
@@ -196,6 +216,7 @@ static EcCNodeRec ecdrBoardRawRegDefs[] = {
 {	"intStat",	EcReg,		0x10,	REGUNION( 0, 32,	RO,	0)		},
 {	"head0",	EcReg,		0x14,	REGUNION( 0, 32,	RO,	0)		},
 {	"head1",	EcReg,		0x18,	REGUNION( 0, 32,	RO,	0)		},
+{	"version",	EcReg,		0x1c,	REGUNION( 0, 32,	RO,	0)		},
 {	"01",		EcDir,		0x10000,{ d: {&ecdrChannelPairRawDir} }	},
 {	"23",		EcDir,		0x20000,{ d: {&ecdrChannelPairRawDir} }	},
 {	"45",		EcDir,		0x30000,{ d: {&ecdrChannelPairRawDir} }	},

@@ -130,7 +130,7 @@ volatile Val_t *vp = (Val_t *)*addr;
  */
 
 static __inline__ Val_t
-adGetReg(volatile Val_t *p)
+getDblReg(volatile Val_t *p)
 {
 /* be careful that the compiler doesn't generate an unaligned access */
 register Val_t r = RDBE(p) & 0xffff;
@@ -155,17 +155,21 @@ register Val_t r = RDBE(p) & 0xffff;
 static __inline__ int
 ad6620IsReset(IOPtr b, EcNode n)
 {
-Val_t rval = adGetReg((volatile Val_t*)(AD6620BASE(b) + AD6620_MCR_OFFSET));
+Val_t rval = getDblReg((volatile Val_t*)(AD6620BASE(b) + AD6620_MCR_OFFSET));
 	return rval & BITS_AD6620_MCR_RESET;
 }
 
 
-/* raw access to AD6620 registers */
+/* raw access to 32-bit registers that are made up of two pieces
+ * (lower 16 bits in first word, upper 16 bits in second word)
+ */
 
 static EcErrStat
-adGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
+longEnblGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
 {
+int				p2 = node->cnode->u.r.u.s.pos2;
 volatile Val_t *vp = (Val_t *)*addr;
+Val_t			v;
 
 	if ( (node->cnode->u.r.flags & EcFlgAD6620RStatic) &&
 	     ! ad6620IsReset(*addr,node)) {
@@ -173,88 +177,39 @@ volatile Val_t *vp = (Val_t *)*addr;
 		return EcErrAD6620NotReset;
 	}
 
-#if 0 /* doing this in 'get' now */
-	/* filter coefficients must not be dynamically read
-	 * (AD6620 datasheet rev.1)
-	 *
-	 * Note that we should prohibit access to the NCO
-	 * frequency as well if in SYNC_MASTER mode, as this
-	 * would cause a sync pulse. However, we assume
-	 * the AD6620s on an ECDR board to always be sync
-	 * slaves.
-	 */
-	if (n->u.r.flags & EcFlgAD6620RStatic) {
-		/* calculate address of MCR */
-		register volatile Val_t *mcrp = (Val_t*)(AD6620BASE(b) + OFFS_AD6620_MCR);
-		register long	isreset = (RDBE(mcrp) & BITS_AD6620_MCR_RESET);
-			EIEIO; /* make sure there is no out of order hardware access beyond
-				* this point
-				*/
-			if (!isreset) return EcErrAD6620NotReset;
+	/* final masking is done by caller */
+	v = getDblReg(vp);
+
+	if ( (node->cnode->u.r.flags & EcFlgP2Enbl) && p2 > 0 && p2 < 32 && ! ( v & (1<<p2)) ) {
+		/* not enabled */
+		v = 0;
 	}
-#endif
-	*rp = adGetReg(vp);
+
+	*rp = v;
 	/* increment address pointer */
 	*addr = (IOPtr)(vp+2);
 	return EcErrOK;
 }
 
 static EcErrStat
-adPutRaw(IOPtr *addr, EcNode node, Val_t val)
+longEnblPutRaw(IOPtr *addr, EcNode node, Val_t val)
 {
+int				p2  = node->cnode->u.r.u.s.pos2;
 volatile Val_t	*vp = (Val_t *)*addr;
 
 	if ((node->cnode->u.r.flags & EcFlgAD6620RWStatic) &&
 	     ! ad6620IsReset(*addr,node)) {
 		return EcErrAD6620NotReset;
 	}
-#if 0        /* this is now done by the higher level routines */
-	/* allow write attempt to "static" 
-	 * registers only if the receiver is in RESET
-	 * state. At this low level, we leave the abstraction
-	 * behind and dive directly into the guts...
-	 */
-	if ( (n->u.r.flags & EcFlgAD6620RWStatic) ) {
 
-		/* must inspect current state of RESET bit */
-
-		register unsigned long	mcr = RDBE((AD6620BASE(b) + OFFS_AD6620_MCR));
-
-		/* it's OK to do the following:
-		 *  if in reset state
-		 *  - change any other register than MCR
-		 *  - change either the reset bit or any other bit in MCR
-		 *    but not both.
-		 *  if we're out of reset
-		 *  - the only allowed operation
-		 *    is just setting the reset bit
-		 */
-		if ( (BITS_AD6620_MCR_RESET & mcr) ) {
-			if ( OFFS_AD6620_MCR == n->offset ) {
-				/* trying to modify mcr; let's see which bits change: */
-				mcr = (val^mcr) & BITS_AD6620_MCR_MASK;
-				if ( mcr & BITS_AD6620_MCR_RESET) {
-					/* reset bit switched off */
-					if ( mcr & ~BITS_AD6620_MCR_RESET) {
-						/* another bit changed as well */
-						return EcErrAD6620NotReset;
-					}
-					/* TODO do consistency check on all settings */
-				}
-				/* other MCR bits changed while reset held */
-			}
+	if ( (node->cnode->u.r.flags & EcFlgP2Enbl) && p2 > 0 && p2 < 32 ) {
+		Val_t m = (1<<p2);
+		if ( val & ECREGMASK(node->cnode) ) {
+			val |= m;
 		} else {
-			/* only flipping reset is allowed */
-			if ( OFFS_AD6620_MCR != n->offset  ||
-			    ((val ^ mcr) & BITS_AD6620_MCR_MASK)
-			     != BITS_AD6620_MCR_RESET )
-				return EcErrAD6620NotReset;
+			val &= ~m;
 		}
-		EIEIO; /* make sure there is no out of order hardware access beyond
-			* this point
-			*/
 	}
-#endif
 
 	EIEIO; /* make sure read of old value completes */
 	WRBE(val & 0xffff, vp);
@@ -461,16 +416,9 @@ Val_t	fifoctl = RDBE(vp);
 
 /* burst cnt msb register */
 #define BURST_COUNT_MSB				1
-/* fifo write count msb register */
-#define FIFO_WRITE_CNT_IRQ_SELECT	2
 
 /* Offsets from register holding burst count MSB */
 #define BURST_COUNT_LSBREG			0x8
-#define CHANNEL_VERSION_REG			(0x48-0x20)
-#define FIFO_WRITE_CNT_MSB_REG_A	(0x50-0x20)
-#define FIFO_WRITE_CNT_LSW_REG_A	(0x4c-0x20)
-#define FIFO_WRITE_CNT_MSB_REG_B	(0x54-0x20)
-#define FIFO_WRITE_CNT_LSW_REG_B	(0x58-0x20)
 
 static EcErrStat
 brstCntGetRaw(IOPtr *addr, EcNode node, Val_t *rp)
@@ -510,22 +458,6 @@ Val_t		msb;
 		msb &= ~BURST_COUNT_MSB;
 	WRBE(msb,vp);
 
-	/* If Channel firmware revision >= 2 propagate to the FIFO write counter
-	 * and re-route interrupts to the FIFO write counter
-	 */
-	vp = (Val_t*)((unsigned long)b + CHANNEL_VERSION_REG);
-	if ( (RDBE(vp) & 0xffff) >= 2 ) {
-		/* We don't support different write counts for Rx A and B */
-		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_LSW_REG_A);
-		WRBE((val+1)&0xffff, vp);
-		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_MSB_REG_A);
-		WRBE( (((val+1)>>16) & 1) | FIFO_WRITE_CNT_IRQ_SELECT, vp);
-
-		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_LSW_REG_B);
-		WRBE((val+1)&0xffff, vp);
-		vp = (Val_t*)((unsigned long)b + FIFO_WRITE_CNT_MSB_REG_B);
-		WRBE( (((val+1)>>16) & 1) | FIFO_WRITE_CNT_IRQ_SELECT, vp);
-	}
 	*addr = 0; /* autoincrement doesnt make sense here */
 	return EcErrOK;
 }
@@ -594,17 +526,17 @@ EcCNodeOpsRec ecdr814RegNodeOps = {
 	putRaw
 };
 
-EcCNodeOpsRec ecdr814AD6620RegNodeOps = {
+EcCNodeOpsRec ecdr814DblRegNodeOps = {
 	&ecdr814RegNodeOps,
 	0,
 	0,
-	adGetRaw,
+	longEnblGetRaw,
 	0,
-	adPutRaw
+	longEnblPutRaw
 };
 
 EcCNodeOpsRec ecdr814AD6620MCRNodeOps = {
-	&ecdr814AD6620RegNodeOps,
+	&ecdr814DblRegNodeOps,
 	0,
 	0,
 	0,
@@ -769,7 +701,7 @@ void
 initRegNodeOps(void)
 {
 	addNodeOps(&ecdr814RegNodeOps, EcReg);
-	addNodeOps(&ecdr814AD6620RegNodeOps, EcAD6620Reg);
+	addNodeOps(&ecdr814DblRegNodeOps, EcDblReg);
 	addNodeOps(&ecdr814AD6620MCRNodeOps, EcAD6620MCR);
 	addNodeOps(&ecdr814BrstCntRegNodeOps, EcBrstCntReg);
 	addNodeOps(&ecdr814FifoRegNodeOps, EcFifoReg);
