@@ -203,6 +203,8 @@ ecStartDMA(EcBoardDesc brd, EcDMADesc d)
 	/* I believe r->uadr is unused by the ecdr */
 	r->mcsr = d->mcsr;
 
+	EIEIO;
+
 	/* verify the settings */
 	if (  EC_CY961_SEMA_BUSY != ((~RDBE(&r->sema)) & EC_CY961_SEMA_MASK)) {
 		/* release semaphore and return error */
