@@ -66,7 +66,7 @@ Val_t		v;
 	 */
 	assert( ! ((unsigned long)vme_b & ECDR_BRDREG_ALIGNMENT) );
 	/* map vme address to local */
-	assert(0==osdep_vme2local(vme_b, &b));
+	assert(0==osdep_vme2local(vme_b, (void*)&b));
 	/* TODO try to detect board; they should
 	 * really provide a RO register with a
 	 * (version etc.) signature...

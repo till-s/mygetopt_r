@@ -225,7 +225,8 @@ typedef struct RGlobParmsRec_ {
 static EcErrStat
 rglob(EcNode n, EcKey append, EcKey globPat, RGlobParms p)
 {
-unsigned char	i, *ptr;
+unsigned char	i;
+char *ptr;
 int		l;
 EcErrStat	rval;
 	if (!n || !EcNodeIsDir(n)) return EcErrNodeNotFound;
@@ -268,7 +269,7 @@ EcErrStat	rval;
 			} else {
 				sprintf(append,"%s%s",
 					n->cnode->u.d.n->nodes[i].name,
-					(*ptr) ? ptr : (unsigned char*)"" /* append array index */
+					(*ptr) ? ptr : "" /* append array index */
 					);
 				/* end of pattern reached, invoke fn */
 				rval = EcError;
