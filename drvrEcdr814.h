@@ -324,6 +324,15 @@ ecStartDMA( EcBoardDesc board, EcDMADesc d);
 unsigned short
 ecGetIntStat(EcBoardDesc bd);
 
+/* a fast way of reading and setting the interrupt mask
+ * register without going through the database
+ */
+unsigned short
+ecGetIntMsk(EcBoardDesc bd);
+
+void
+ecSetIntMsk(EcBoardDesc bd, unsigned short mask);
+
 /* get the sema status register of the CY961
  * NOTE: the returned value has been _inverted_, i.e.
  * the bit values are "active high"...

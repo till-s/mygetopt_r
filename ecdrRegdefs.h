@@ -59,6 +59,9 @@
 #define ECDR_INT_STAT_OFFSET	(0x10)
 #define ECDR_INT_STAT_MSK	(0x7ff)
 
+/* the interrupt mask register   */
+#define ECDR_INT_MSK_OFFSET		(0x0c)
+
 /* address range spanned by the fifo in ECDRs map */
 #define ECDR_FIFO_ADDR_RANGE	(0x300000)
 
