@@ -138,8 +138,8 @@ static EcCNodeRec ecdrChannelPairRegDefs[] = {
 /* Treating fifoWCnt as a EcFlgP2Enbl register has the side-effect of enabling this register as an IRQ
  * source if it is non-zero
  */
-{	"C0.fifoWCnt",	EcDblReg,	0x4c,	REGUNLMT( 0, 17,	EcFlgP2Enbl,	BURSTINI,		0,	(1<<17)-1,	0)},
-{	"C1.fifoWCnt",	EcDblReg,	0x54,	REGUNLMT( 0, 17,	EcFlgP2Enbl,	BURSTINI,		0,	(1<<17)-1,	0)},
+{	"C0.fifoWCnt",	EcDblReg,	0x4c,	REGUNLMT( 0, 17,	EcFlgP2Enbl,	0,		0,	(1<<17)-1,	0)},
+{	"C1.fifoWCnt",	EcDblReg,	0x54,	REGUNLMT( 0, 17,	EcFlgP2Enbl,	0,		0,	(1<<17)-1,	0)},
 {	"0A",		EcDir,		0x2000,	{ d: {&ad6620Dir} }		},
 {	"0B",		EcDir,		0x4000,	{ d: {&ad6620Dir} }		},
 {	"1A",		EcDir,		0x6000,	{ d: {&ad6620Dir} }		},
