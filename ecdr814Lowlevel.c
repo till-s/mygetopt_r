@@ -158,13 +158,18 @@ unsigned long	mcsr = ((unsigned long)vec) & 0xff;
 		WRBE( EC_CY961_XFRT_DTSZ_D64 | EC_CY961_XFRT_TYPE_A32_SB64,
 			&d->xfrt );
 	} else {
+		/* Unfortunately, there seems to be no way to force the
+		 * CY master to release the bus earlier than 64 cycles!
+		 * I found that even if we do sincle-cycle transfers,
+		 * the bus is held for 64 (D32) cycles
+		 */
 		if (size % 64) return EcErrOutOfRange;
 		size /= 64;
 		WRBE( EC_CY961_XFRT_DTSZ_D32 | EC_CY961_XFRT_TYPE_A32_SB,
 			&d->xfrt );
 	}
 
-	if ( osdep_local2vme(buf, &vmeaddr) )
+	if ( osdep_local2vme(buf, (void*)&vmeaddr) )
 		return EcError;
 
 	if ( (unsigned long)vmeaddr % ((flags & EcDMA_D64) ? 256 : 4) )
@@ -229,6 +234,19 @@ ecGetIntStat(EcBoardDesc bd)
 {
 return RDBE(bd->base + ECDR_INT_STAT_OFFSET) & ECDR_INT_STAT_MSK;
 }
+
+unsigned short
+ecGetIntMsk(EcBoardDesc bd)
+{
+return RDBE(bd->base + ECDR_INT_MSK_OFFSET);
+}
+
+void
+ecSetIntMsk(EcBoardDesc bd, unsigned short val)
+{
+return WRBE(val, bd->base + ECDR_INT_MSK_OFFSET);
+}
+
 
 unsigned long
 ecGetCYSemaStat( EcBoardDesc bd)
