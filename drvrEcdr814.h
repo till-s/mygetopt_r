@@ -8,7 +8,7 @@
  * Author: Till Straumann <strauman@slac.stanford.edu>, 9/2001
  */
 
-#include "ecErrCodes.h"
+#include <ecErrCodes.h>
 
 /* number of array elements */
 #define EcdrNumberOf(arr) (sizeof(arr)/sizeof(arr[0]))

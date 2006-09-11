@@ -5,14 +5,14 @@ include $(TOP)/configure/CONFIG
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
 
-GENINC = geninc
+GENINC = O.Common
 
 USR_CFLAGS +=  -DDIRSHELL -DDEBUG -g
 USR_INCLUDES += -I../$(GENINC)/
 #USR_DBDFLAGS += -I$(ECDR_HOME)
 #USR_LDFLAGS += -Wl,-M
 
-INC += ecErrCodes.h drvrEcdr814.h 
+INC += ecOsDep.h ecErrCodes.h drvrEcdr814.h ecFastKeys.h ecFastKeyDefs.h ecMenuDefs.h
 
 TESTPROD_HOST += genMenuHdr
 genMenuHdr_SRCS += genMenuHdr.c bitMenu.c
@@ -59,21 +59,21 @@ include $(TOP)/configure/RULES
 ../$(GENINC):
 	mkdir $@
 
-inc: ../$(GENINC) ../$(GENINC)/menuDefs.h ../$(GENINC)/fastKeyDefs.h
+inc: ../$(GENINC) ../$(GENINC)/ecMenuDefs.h ../$(GENINC)/ecFastKeyDefs.h
 
-../$(GENINC)/menuDefs.h ../O.Common/ecdr814Menus.dbd: ../O.$(EPICS_HOST_ARCH)/genMenuHdr ../bitMenu.c
+../$(GENINC)/ecMenuDefs.h ../O.Common/ecdr814Menus.dbd: ../O.$(EPICS_HOST_ARCH)/genMenuHdr ../bitMenu.c
 	echo '#ifndef BIT_MENU_HEADER_DEFS_H' > $@
 	echo '#define BIT_MENU_HEADER_DEFS_H' >> $@
 	echo '/* DONT EDIT THIS FILE, IT WAS AUTOMATICALLY GENERATED */' >>$@
 	if  $< ../O.Common/ecdr814Menus.dbd >> $@ && echo '#endif' >>$@  ; then true ; else $(RM) $@; fi
 
-../$(GENINC)/fastKeyDefs.h:../O.$(EPICS_HOST_ARCH)/genHeaders 
+../$(GENINC)/ecFastKeyDefs.h:../O.$(EPICS_HOST_ARCH)/genHeaders 
 	if  $< -k > $@ ; then true ; else $(RM) $@; fi
 
 ../O.$(EPICS_HOST_ARCH)/genMenuHdr:
 	$(MAKE) -C ../O.$(EPICS_HOST_ARCH)/ genMenuHdr
 
-../O.$(EPICS_HOST_ARCH)/genHeaders:
+../O.$(EPICS_HOST_ARCH)/genHeaders: ../$(GENINC)/ecMenuDefs.h
 	$(MAKE) -C ../O.$(EPICS_HOST_ARCH)/ genHeaders
 
 clean::

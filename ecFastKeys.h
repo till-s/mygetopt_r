@@ -5,10 +5,10 @@
 #include <stdarg.h>
 
 /* fast key implementation */
-#include "drvrEcdr814.h"
+#include <drvrEcdr814.h>
 
 #ifndef DO_GEN_FAST_KEYS
-#include "fastKeyDefs.h"
+#include <ecFastKeyDefs.h>
 #endif
 
 #ifdef __cplusplus

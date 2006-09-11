@@ -40,9 +40,9 @@
 		(unsigned long*)(pvmeaddr))
 #elif defined(__linux)
 #   define osdep_vme2local(vmeaddr, plocaladdr) \
-	((*(plocaladdr)=(vmeaddr)),0)
+	((*(unsigned long*)(plocaladdr)=(unsigned long)(vmeaddr)),0)
 #   define osdep_local2vme(localaddr, pvmeaddr) \
-	((*(pvmeaddr)=(localaddr)),0)
+	((*(unsigned long*)(pvmeaddr)=(unsigned long)(localaddr)),0)
 #endif
 
 /* probing of memory addresses */

@@ -2,7 +2,7 @@
 
 #include "drvrEcdr814.h"
 
-#include "menuDefs.h"
+#include "ecMenuDefs.h"
 
 #define RO 	EcFlgReadOnly
 #define NI	EcFlgNoInit

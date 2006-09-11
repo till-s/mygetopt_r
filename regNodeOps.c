@@ -6,7 +6,7 @@
 #include "ecdrRegdefs.h"
 
 #include "ecFastKeys.h"
-#include "menuDefs.h"
+#include "ecMenuDefs.h"
 
 #ifdef NDEBUG
 #error "this code uses assert with side-effects"
