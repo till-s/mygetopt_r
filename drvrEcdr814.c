@@ -46,6 +46,37 @@ static EcNode		ecdr814RawBoard=0;
 
 #define DO_RAW_ENTRY 2
 
+void
+drvrEcdr814SetDefaults(EcBoardDesc bd)
+{
+	/* initialize */
+	/* raw initialization sets pretty much everything to zero */
+	ecNodeWalk(bd, ecdr814RawBoard, putIniVal, 0);
+	/* now set individual bits as defined in the board table */
+	ecNodeWalk(bd, ecdr814Board, putIniVal, 0);
+
+	/* write channel ids -- this seems to be really important! */
+	{
+	int 	i;
+	EcNode	n;
+	EcFKey	fk[8] = {
+		BUILD_FKEY3( FK_board_01 , FK_channelPair_C0, FK_channel_channelID ),
+		BUILD_FKEY3( FK_board_01 , FK_channelPair_C1, FK_channel_channelID ),
+		BUILD_FKEY3( FK_board_23 , FK_channelPair_C0, FK_channel_channelID ),
+		BUILD_FKEY3( FK_board_23 , FK_channelPair_C1, FK_channel_channelID ),
+		BUILD_FKEY3( FK_board_45 , FK_channelPair_C0, FK_channel_channelID ),
+		BUILD_FKEY3( FK_board_45 , FK_channelPair_C1, FK_channel_channelID ),
+		BUILD_FKEY3( FK_board_67 , FK_channelPair_C0, FK_channel_channelID ),
+		BUILD_FKEY3( FK_board_67 , FK_channelPair_C1, FK_channel_channelID ),
+		};
+		for (i=0; i < 8; i++) {
+			assert ( (n = ecNodeLookupFast(ecdr814Board, fk[i]) )
+				 && (EcErrOK == ecPutValue(bd, n, i)) );
+		}
+	}
+	/* TODO other initialization (VME, RW...) */
+}
+
 
 EcErrStat
 ecAddBoard(char *name, IOPtr vme_b, EcBoardDesc *pdesc)
@@ -100,31 +131,7 @@ Val_t		v;
 	boards[k]->vmeBase = vme_b;
 	boards[k]->root = ecdr814Board;
 
-	/* initialize */
-	/* raw initialization sets pretty much everything to zero */
-	ecNodeWalk(boards[k], ecdr814RawBoard, putIniVal, 0);
-	/* now set individual bits as defined in the board table */
-	ecNodeWalk(boards[k], ecdr814Board, putIniVal, 0);
-
-	/* write channel ids */
-	{
-	int 	i;
-	EcFKey	fk[8] = {
-		BUILD_FKEY3( FK_board_01 , FK_channelPair_C0, FK_channel_channelID ),
-		BUILD_FKEY3( FK_board_01 , FK_channelPair_C1, FK_channel_channelID ),
-		BUILD_FKEY3( FK_board_23 , FK_channelPair_C0, FK_channel_channelID ),
-		BUILD_FKEY3( FK_board_23 , FK_channelPair_C1, FK_channel_channelID ),
-		BUILD_FKEY3( FK_board_45 , FK_channelPair_C0, FK_channel_channelID ),
-		BUILD_FKEY3( FK_board_45 , FK_channelPair_C1, FK_channel_channelID ),
-		BUILD_FKEY3( FK_board_67 , FK_channelPair_C0, FK_channel_channelID ),
-		BUILD_FKEY3( FK_board_67 , FK_channelPair_C1, FK_channel_channelID ),
-		};
-		for (i=0; i < 8; i++) {
-			assert ( (n = ecNodeLookupFast(ecdr814Board, fk[i]) )
-				 && (EcErrOK == ecPutValue(boards[k],n, i)) );
-		}
-	}
-	/* TODO other initialization (VME, RW...) */
+	drvrEcdr814SetDefaults(boards[k]);
 
 	if (pdesc) {
 		*pdesc=boards[k];
@@ -145,7 +152,6 @@ Val_t		v;
 
 cleanup:
 	return rval;
-
 }
 
 EcBoardDesc ecGetBoardDesc(int instance)

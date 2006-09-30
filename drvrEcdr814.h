@@ -222,6 +222,13 @@ EcBoardDesc ecGetBoardDesc(int instance);
  */
 EcBoardDesc ecBoardDescLookup(EcKey k, int keyLen);
 
+/* Write out default setup to hardware -- call this
+ * after doing a board reset. I found that programming
+ * the channel IDs seems to be really important (???).
+ */
+void
+drvrEcdr814SetDefaults(EcBoardDesc bd);
+
 /* DMA stuff */
 
 typedef unsigned long BEUlong; /* emphasize that it's big endian */
