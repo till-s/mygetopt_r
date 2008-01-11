@@ -94,9 +94,6 @@
 		BSP_enableVME_int_lvl(level)
 
 #else
-#	define osdep_IRQ_HANDLER_PROTO(name, arg) \
-		void name(void *arg)
-
 #	define osdep_intConnect(vector, handler, arg)
 #	define osdep_intEnable(level)
 #endif

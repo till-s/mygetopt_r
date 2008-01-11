@@ -33,7 +33,7 @@ if (depth >= 0) {
 		if (!isalnum(*chpt)) *chpt='_';
 	  }
 	}
-	fprintf((FILE*)arg,"#define FK_%s_%s\t\t%i\n",l->parent->cnode->u.d.n->name,buf,fkey);
+	fprintf((FILE*)arg,"#define FK_%s_%s\t\t%li\n",l->parent->cnode->u.d.n->name,buf,fkey);
 	/* mark node visited */
 	l->cnode->offset=1;
 }
@@ -77,7 +77,7 @@ switch (mode) {
 	case 'c':
 		{ unsigned long total=0;
 		ecNodeWalk(0, root, countNodes, &total);
-		printf("Total node count is %i\n",total);
+		printf("Total node count is %lu\n",total);
 		}
 	break;
 	

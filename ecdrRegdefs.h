@@ -104,8 +104,11 @@ ad6620ConsistencyCheck(EcBoardDesc bd, EcNode n);
 #endif
 #endif
 
-#define RDBE(addr)		in_be32((volatile uint32_t *)(addr))
-#define WRBE(val,addr)	out_be32((volatile uint32_t *)(addr),(uint32_t)(val))
+/* Casting these address pointers is bad because it hides possible
+ * aliasing problems...
+ */
+#define RDBE(addr)		in_be32((volatile void *)(addr))
+#define WRBE(val,addr)	out_be32((volatile void *)(addr),(Val_t)(val))
 
 #ifdef __cplusplus
 };

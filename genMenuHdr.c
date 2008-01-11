@@ -28,7 +28,7 @@ char	*name="ecdr814Menus.dbd";
 				*(dpt++)=*spt;
 		*dpt=0;
 		
-		printf("#define EC_MENU_%s_%s	%i\n",
+		printf("#define EC_MENU_%s_%s	%lu\n",
 				(*mp)->menuName,
 				buf,
 				(*mp)->items[i].bitval);

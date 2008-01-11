@@ -83,7 +83,6 @@ ecAddBoard(char *name, IOPtr vme_b, EcBoardDesc *pdesc)
 {
 EcErrStat	rval=EcError;
 int		k;
-EcNode		n;
 IOPtr		b;
 Val_t		v;
 	/* lazy init */

@@ -35,6 +35,10 @@ ecCd(EcKey k, FILE *f);
 EcErrStat
 ecLs(EcKey k, va_list ap);
 
+/* Interactive 'shell' interface */
+void
+ecdrsh(FILE *fin, FILE *fout, FILE *ferr);
+
 #ifdef __cplusplus
 };
 #endif

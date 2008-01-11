@@ -6,6 +6,7 @@
 #include "drvrEcdr814.h"
 #include "ecdrRegdefs.h" /* for BRDREG_ALIGNMENT */
 #include "ecFastKeys.h"
+#include "dirOps.h"
 
 
 int

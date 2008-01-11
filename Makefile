@@ -7,7 +7,7 @@ include $(TOP)/configure/CONFIG
 
 GENINC = O.Common
 
-USR_CFLAGS +=  -DDIRSHELL -DDEBUG -g
+USR_CFLAGS +=  -DDIRSHELL -DDEBUG -g -fno-strict-aliasing
 USR_INCLUDES += -I../$(GENINC)/
 #USR_DBDFLAGS += -I$(ECDR_HOME)
 #USR_LDFLAGS += -Wl,-M
