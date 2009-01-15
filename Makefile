@@ -1,6 +1,8 @@
 TOP=../..
 
 include $(TOP)/configure/CONFIG
+CROSS_COMPILER_TARGET_ARCHS = $(CROSS_COMPILER_TARGET_VME)
+
 #----------------------------------------
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
