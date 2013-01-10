@@ -69,6 +69,6 @@ typedef struct MyGetOptCtxtRec_ {
 extern "C" 
 #endif
 int
-mygetopt_r(int argc, char **argv, char *optstr, MyGetOptCtxt ctx);
+mygetopt_r(int argc, char **argv, const char *optstr, MyGetOptCtxt ctx);
 
 #endif
