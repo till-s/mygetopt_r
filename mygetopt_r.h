@@ -1,7 +1,5 @@
 #ifndef MY_REENTRANT_GETOPT
 #define MY_REENTRANT_GETOPT
-/* $Id$ */
-
 /* A reentrant getopt implementation */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
