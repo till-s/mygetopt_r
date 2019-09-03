@@ -1,4 +1,3 @@
-/* $Id$ */
 
 /* A reentrant getopt implementation */
 

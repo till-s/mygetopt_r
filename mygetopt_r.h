@@ -1,6 +1,5 @@
 #ifndef MY_REENTRANT_GETOPT
 #define MY_REENTRANT_GETOPT
-/* $Id$ */
 
 /* A reentrant getopt implementation */
 
